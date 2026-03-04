@@ -1,0 +1,23 @@
+name: 'portfolio_intelligence_hub'
+version: '1.0.0'
+config-version: 2
+profile: 'portfolio_intelligence_hub'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  portfolio_intelligence_hub:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +materialized: table
+      +schema: analytics

@@ -1,0 +1,252 @@
+[
+  {
+    "test_id": "UT_001",
+    "persona": "Property Manager",
+    "question": "What units are available under $3,000 per month?",
+    "expected_answer": "Units 201-A, 305-B, and 412-A in Tower North are available under $3,000/month, with move-in dates in April 2026.",
+    "expected_sql": "SELECT unit_id, unit_number, rent, availability_date FROM units WHERE rent < 3000 AND status = 'available' ORDER BY rent ASC",
+    "contexts": [
+      "Tower North contains 250 units. Unit 201-A is a 1BR/1BA listed at $2,850/month available April 15, 2026.",
+      "Unit 305-B is a 2BR/1BA listed at $2,950/month available April 1, 2026 in Tower North.",
+      "Unit 412-A is a studio listed at $2,750/month available April 20, 2026 in Tower North."
+    ],
+    "ground_truth": "Units under $3,000: 201-A ($2,850), 305-B ($2,950), 412-A ($2,750)"
+  },
+  {
+    "test_id": "FIN_001",
+    "persona": "CFO",
+    "question": "Show NOI trend year-over-year for the last three years.",
+    "expected_answer": "NOI has grown YoY: 2023: $2.1M, 2024: $2.45M (+16.7%), 2025: $2.89M (+18.0%)",
+    "expected_sql": "SELECT year, noi, LAG(noi) OVER (ORDER BY year) as prev_noi, ROUND((noi - LAG(noi) OVER (ORDER BY year)) / LAG(noi) OVER (ORDER BY year) * 100, 1) as yoy_growth FROM financial_metrics WHERE year BETWEEN 2023 AND 2025",
+    "contexts": [
+      "2023 Net Operating Income: $2,100,000 from 350 leased units",
+      "2024 Net Operating Income: $2,450,000 representing 16.7% YoY growth",
+      "2025 Net Operating Income: $2,890,000 with 18.0% YoY increase"
+    ],
+    "ground_truth": "YoY NOI growth: 2024 +16.7%, 2025 +18.0%"
+  },
+  {
+    "test_id": "OPS_001",
+    "persona": "Operations Manager",
+    "question": "Which buildings have the most open work orders?",
+    "expected_answer": "Tower North has 47 open work orders, Tower South has 32, and East Wing has 18.",
+    "expected_sql": "SELECT building_name, COUNT(*) as open_orders FROM work_orders WHERE status = 'open' GROUP BY building_name ORDER BY open_orders DESC",
+    "contexts": [
+      "Tower North currently has 47 open maintenance work orders requiring attention",
+      "Tower South has 32 pending work orders, mostly HVAC and plumbing related",
+      "East Wing has 18 open work orders, primarily preventive maintenance"
+    ],
+    "ground_truth": "Open work orders: Tower North 47, Tower South 32, East Wing 18"
+  },
+  {
+    "test_id": "OPS_002",
+    "persona": "Operations Manager",
+    "question": "What is the current occupancy rate by building?",
+    "expected_answer": "Tower North: 96.2%, Tower South: 91.5%, East Wing: 88.3%",
+    "expected_sql": "SELECT building_name, COUNT(CASE WHEN lease_status = 'active' THEN 1 END) * 100.0 / COUNT(*) as occupancy_rate FROM units GROUP BY building_name ORDER BY occupancy_rate DESC",
+    "contexts": [
+      "Tower North: 337 of 350 units occupied (96.2% occupancy)",
+      "Tower South: 293 of 320 units occupied (91.5% occupancy)",
+      "East Wing: 177 of 200 units occupied (88.3% occupancy)"
+    ],
+    "ground_truth": "Occupancy rates match by building percentages"
+  },
+  {
+    "test_id": "LEASE_001",
+    "persona": "Leasing Agent",
+    "question": "List all lease expirations in Q2 2026.",
+    "expected_answer": "52 leases expire in Q2: April (18), May (17), June (17). Key expirations include Tower North 201-A, Tower South 305-B.",
+    "expected_sql": "SELECT MONTH(expiration_date) as month, COUNT(*) as count FROM leases WHERE expiration_date BETWEEN '2026-04-01' AND '2026-06-30' GROUP BY MONTH(expiration_date) ORDER BY month",
+    "contexts": [
+      "Q2 2026 lease expirations: 18 in April, 17 in May, 17 in June",
+      "April expirations include Unit 201-A, Tower North (1BR/$2,850)",
+      "May expirations include Unit 305-B, Tower South (2BR/$3,200)",
+      "June lease expirations are distributed across all buildings"
+    ],
+    "ground_truth": "52 total Q2 expirations with distribution 18/17/17"
+  },
+  {
+    "test_id": "ACCT_001",
+    "persona": "Accounting Manager",
+    "question": "Which tenants have payment issues?",
+    "expected_answer": "3 tenants with payment delays: ABC Corp (45 days), XYZ LLC (30 days), Tech Startup Inc (15 days)",
+    "expected_sql": "SELECT tenant_name, unit_id, DATEDIFF(day, due_date, GETDATE()) as days_overdue FROM rent_payments WHERE status = 'overdue' ORDER BY days_overdue DESC",
+    "contexts": [
+      "ABC Corp (Unit 501) has a 45-day payment delay on March rent",
+      "XYZ LLC (Unit 602) is 30 days past due on current rent",
+      "Tech Startup Inc (Unit 703) has a 15-day payment delay"
+    ],
+    "ground_truth": "3 tenants with overdue payments ranging 15-45 days"
+  },
+  {
+    "test_id": "FIN_002",
+    "persona": "CFO",
+    "question": "What is the total utility cost for March 2026?",
+    "expected_answer": "Total March 2026 utility costs: $87,500 (Electricity: $42,000, Gas: $28,500, Water: $17,000)",
+    "expected_sql": "SELECT utility_type, SUM(cost) as total_cost FROM utility_expenses WHERE YEAR(month) = 2026 AND MONTH(month) = 3 GROUP BY utility_type WITH ROLLUP",
+    "contexts": [
+      "March 2026 electricity costs: $42,000 across all buildings",
+      "March 2026 gas costs: $28,500 for heating systems",
+      "March 2026 water/sewer costs: $17,000"
+    ],
+    "ground_truth": "March utilities total $87,500"
+  },
+  {
+    "test_id": "CAPEX_001",
+    "persona": "Asset Manager",
+    "question": "Show capital expenditure projects scheduled for Q3 2026.",
+    "expected_answer": "4 CapEx projects: Roof replacement Tower North ($450K), HVAC upgrade Tower South ($320K), Parking lot resurfacing ($180K), Lobby renovation ($95K)",
+    "expected_sql": "SELECT project_name, building_name, budget, scheduled_start FROM capital_projects WHERE status = 'scheduled' AND scheduled_start BETWEEN '2026-07-01' AND '2026-09-30'",
+    "contexts": [
+      "Tower North roof replacement project scheduled July 2026 - estimated cost $450,000",
+      "Tower South HVAC system upgrade planned August 2026 - $320,000 budget",
+      "Parking lot resurfacing project - $180,000, scheduled September 2026",
+      "East Wing lobby renovation - $95,000, planned for Q3 2026"
+    ],
+    "ground_truth": "4 CapEx projects totaling $1,045,000 in Q3"
+  },
+  {
+    "test_id": "UT_002",
+    "persona": "Leasing Director",
+    "question": "What are the highest and lowest rental rates?",
+    "expected_answer": "Highest: Tower North 3BR penthouse at $4,950/month. Lowest: East Wing studio at $1,850/month.",
+    "expected_sql": "SELECT MIN(rent) as min_rent, MAX(rent) as max_rent, unit_number FROM units GROUP BY unit_number HAVING rent IN (SELECT MIN(rent) FROM units) OR rent IN (SELECT MAX(rent) FROM units)",
+    "contexts": [
+      "Premium units in Tower North command highest rents, penthouse 3BR at $4,950/month",
+      "Tower South 2BR units average $3,200/month",
+      "East Wing studio units are the most affordable at $1,850/month minimum"
+    ],
+    "ground_truth": "Rate range: $1,850 (min) to $4,950 (max)"
+  },
+  {
+    "test_id": "INVENTORY_001",
+    "persona": "Property Manager",
+    "question": "How many units are in each building by bedroom count?",
+    "expected_answer": "Tower North: Studios 50, 1BR 100, 2BR 80, 3BR 20. Tower South: Studios 40, 1BR 120, 2BR 140, 3BR 20. East Wing: Studios 80, 1BR 80, 2BR 40.",
+    "expected_sql": "SELECT building_name, bedroom_count, COUNT(*) as unit_count FROM units GROUP BY building_name, bedroom_count ORDER BY building_name, bedroom_count",
+    "contexts": [
+      "Tower North inventory: 50 studios, 100 one-bedrooms, 80 two-bedrooms, 20 three-bedrooms",
+      "Tower South units: 40 studios, 120 one-bedrooms, 140 two-bedrooms, 20 three-bedrooms",
+      "East Wing breakdown: 80 studios, 80 one-bedrooms, 40 two-bedrooms"
+    ],
+    "ground_truth": "Total 870 units distributed by type and building"
+  },
+  {
+    "test_id": "FIN_003",
+    "persona": "CFO",
+    "question": "What is the CAM charge breakdown?",
+    "expected_answer": "CAM charges: Insurance 35%, Maintenance 32%, Utilities 25%, Property Tax 8%. Average $185/unit/month.",
+    "expected_sql": "SELECT expense_category, SUM(amount) * 100.0 / (SELECT SUM(amount) FROM cam_expenses) as percentage, ROUND(AVG(amount), 2) as avg_per_unit FROM cam_expenses GROUP BY expense_category",
+    "contexts": [
+      "CAM insurance component: 35% of total CAM charges",
+      "Maintenance services: 32% of CAM allocation",
+      "Utilities embedded in CAM: 25% of charges",
+      "Property tax: 8% of CAM. Average CAM charge: $185/unit/month"
+    ],
+    "ground_truth": "CAM breakdown percentages and average charge correct"
+  },
+  {
+    "test_id": "LEASE_002",
+    "persona": "Leasing Agent",
+    "question": "Show lease renewal rates by building.",
+    "expected_answer": "Tower North: 84% renewal rate, Tower South: 77% renewal, East Wing: 69% renewal",
+    "expected_sql": "SELECT building_name, COUNT(CASE WHEN renewal_status = 'renewed' THEN 1 END) * 100.0 / COUNT(*) as renewal_rate FROM leases WHERE expiration_date < GETDATE() GROUP BY building_name",
+    "contexts": [
+      "Tower North maintains strong 84% lease renewal rate",
+      "Tower South lease renewal rate: 77%",
+      "East Wing has lower 69% renewal rate, suggesting retention challenges"
+    ],
+    "ground_truth": "Renewal rates: TN 84%, TS 77%, EW 69%"
+  },
+  {
+    "test_id": "COMM_001",
+    "persona": "Community Manager",
+    "question": "What events are scheduled in common areas for April?",
+    "expected_answer": "7 events: Fitness class (4/2, 4/9, 4/16, 4/23, 4/30), Tenant networking (4/5), Community cleanup (4/20)",
+    "expected_sql": "SELECT event_name, COUNT(*) as event_count FROM community_events WHERE event_date BETWEEN '2026-04-01' AND '2026-04-30' GROUP BY event_name",
+    "contexts": [
+      "April fitness classes scheduled: Tuesdays 6pm in Tower North gym",
+      "Tenant networking event April 5 in Tower North lobby",
+      "Community cleanup day scheduled April 20"
+    ],
+    "ground_truth": "7 community events scheduled for April"
+  },
+  {
+    "test_id": "OPS_003",
+    "persona": "Operations Manager",
+    "question": "Which tenants have expiring parking permits?",
+    "expected_answer": "8 tenants with expiring permits: 3 in April, 3 in May, 2 in June. Renewal notices sent.",
+    "expected_sql": "SELECT MONTH(expiration_date) as month, COUNT(*) as permit_count FROM parking_permits WHERE expiration_date BETWEEN '2026-04-01' AND '2026-06-30' GROUP BY MONTH(expiration_date)",
+    "contexts": [
+      "3 parking permits expire in April 2026",
+      "3 additional permits expire in May 2026",
+      "2 permits expire in June 2026. Renewal notices have been distributed."
+    ],
+    "ground_truth": "8 total expiring permits across Q2 2026"
+  },
+  {
+    "test_id": "COMPLIANCE_001",
+    "persona": "Compliance Officer",
+    "question": "Show environmental compliance status.",
+    "expected_answer": "All buildings compliant: Energy Star certified (Tower North, Tower South), Green Building standards (East Wing), no violations.",
+    "expected_sql": "SELECT building_name, certification_type, compliance_status FROM environmental_certifications WHERE status = 'active'",
+    "contexts": [
+      "Tower North: Energy Star certified, compliant with all EPA standards",
+      "Tower South: Energy Star certified, no environmental violations",
+      "East Wing: Green Building standards certified, full compliance"
+    ],
+    "ground_truth": "All buildings meet or exceed environmental requirements"
+  },
+  {
+    "test_id": "LEASE_003",
+    "persona": "Leasing Director",
+    "question": "What is the average lease term by unit type?",
+    "expected_answer": "Studios: 10.2 months avg, 1BR: 11.5 months, 2BR: 12.1 months, 3BR: 12.8 months",
+    "expected_sql": "SELECT unit_type, ROUND(AVG(DATEDIFF(month, lease_start_date, lease_end_date)), 1) as avg_lease_months FROM leases GROUP BY unit_type ORDER BY avg_lease_months",
+    "contexts": [
+      "Studio units average 10.2 month lease terms",
+      "1-bedroom units: 11.5 month average",
+      "2-bedroom units average 12.1 months",
+      "3-bedroom units: 12.8 month average lease term"
+    ],
+    "ground_truth": "Average lease terms increase with unit size"
+  },
+  {
+    "test_id": "POLICY_001",
+    "persona": "Property Manager",
+    "question": "List tenants with pet policy violations.",
+    "expected_answer": "2 violations: Unit 207 (unauthorized pet), Unit 508 (exceeds weight limit). Both issued warnings.",
+    "expected_sql": "SELECT unit_id, violation_type, action_taken FROM pet_violations WHERE status = 'open' ORDER BY violation_date DESC",
+    "contexts": [
+      "Unit 207 has unauthorized pet - written warning issued",
+      "Unit 508 tenant has pet exceeding weight policy limits - warning sent"
+    ],
+    "ground_truth": "2 pet policy violations documented and addressed"
+  },
+  {
+    "test_id": "MARKET_001",
+    "persona": "Asset Manager",
+    "question": "What is the multi-family market comparison data?",
+    "expected_answer": "Market avg: $3,100/month, Portfolio avg: $2,980/month (-3.9%). Portfolio competitive advantage on pricing.",
+    "expected_sql": "SELECT 'Portfolio' as comparison, AVG(rent) as avg_rent FROM units UNION SELECT 'Market', $3100 FROM market_data",
+    "contexts": [
+      "Regional multi-family market average: $3,100/month",
+      "Our portfolio average: $2,980/month",
+      "Pricing advantage: -3.9% below market, strong competitive position"
+    ],
+    "ground_truth": "Portfolio underpriced vs market by 3.9%"
+  },
+  {
+    "test_id": "FIN_004",
+    "persona": "CFO",
+    "question": "Show debt service coverage ratio by year.",
+    "expected_answer": "2023: 1.45x, 2024: 1.62x, 2025: 1.78x. DSCR improving with NOI growth.",
+    "expected_sql": "SELECT year, noi, debt_service, noi / debt_service as dscr FROM financial_metrics WHERE year BETWEEN 2023 AND 2025 ORDER BY year",
+    "contexts": [
+      "2023 Debt Service Coverage Ratio: 1.45x",
+      "2024 DSCR: 1.62x, showing 11.7% improvement",
+      "2025 DSCR: 1.78x with continued improvement trajectory"
+    ],
+    "ground_truth": "DSCR trend shows healthy debt servicing capacity"
+  }
+]

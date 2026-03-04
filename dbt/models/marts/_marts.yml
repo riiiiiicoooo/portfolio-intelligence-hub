@@ -1,0 +1,114 @@
+version: 2
+
+models:
+  - name: fct_portfolio_kpis
+    description: Portfolio-wide key performance indicators aggregated by reporting period
+    columns:
+      - name: reporting_period_key
+        description: YYYY-MM format reporting period identifier
+        tests:
+          - not_null
+      - name: reporting_period
+        description: End date of reporting period
+        tests:
+          - not_null
+          - unique
+      - name: properties_reporting
+        description: Count of properties with financial data for this period
+      - name: total_portfolio_noi
+        description: Total Net Operating Income across all properties
+      - name: avg_portfolio_occupancy_pct
+        description: Average occupancy rate across portfolio
+      - name: total_portfolio_units
+        description: Total number of units in reporting portfolio
+      - name: total_occupied_units
+        description: Total occupied units in portfolio
+      - name: portfolio_cap_rate_pct
+        description: Portfolio-wide capitalization rate
+      - name: mom_noi_change
+        description: Month-over-month NOI change in dollars
+      - name: mom_noi_change_pct
+        description: Month-over-month NOI change as percentage
+      - name: yoy_noi_change
+        description: Year-over-year NOI change in dollars
+      - name: yoy_noi_change_pct
+        description: Year-over-year NOI change as percentage
+
+  - name: fct_property_scorecard
+    description: Comprehensive per-property performance scorecard with health metrics and alerts
+    columns:
+      - name: property_id
+        description: Unique property identifier
+        tests:
+          - unique
+          - not_null
+      - name: property_name
+        description: Property name
+      - name: property_type
+        description: Classification of property type
+      - name: composite_performance_score
+        description: Overall performance score (0-100)
+      - name: performance_tier
+        description: Performance tier classification
+        tests:
+          - accepted_values:
+              values: ['EXCELLENT', 'GOOD', 'FAIR', 'POOR']
+      - name: performance_quartile
+        description: Quartile ranking within property type
+        tests:
+          - accepted_values:
+              values: [1, 2, 3, 4]
+      - name: noi_margin_percent
+        description: NOI as percentage of effective gross income
+      - name: occupancy_percent
+        description: Current occupancy rate (0-100%)
+      - name: total_open_work_orders
+        description: Count of open maintenance work orders
+      - name: alert_count
+        description: Number of active performance alerts
+      - name: flag_underperformer
+        description: Boolean flag indicating bottom quartile performance
+      - name: flag_critical_work_orders
+        description: Boolean flag for critical maintenance work orders
+
+  - name: dim_properties
+    description: Enriched property dimension with classification and enrichment attributes
+    columns:
+      - name: property_id
+        description: Unique property identifier
+        tests:
+          - unique
+          - not_null
+      - name: property_name
+        description: Property name or identifier
+      - name: property_type
+        description: Property type classification
+      - name: investment_class
+        description: Investment class (Class A, B, or C)
+        tests:
+          - accepted_values:
+              values: ['CLASS_A', 'CLASS_B', 'CLASS_C']
+      - name: city
+        description: City location
+      - name: state_province
+        description: State or province
+      - name: total_units
+        description: Total number of units
+      - name: property_size_category
+        description: Size classification
+        tests:
+          - accepted_values:
+              values: ['LARGE', 'MEDIUM', 'SMALL', 'BOUTIQUE']
+      - name: property_lifecycle_stage
+        description: Lifecycle stage of property
+        tests:
+          - accepted_values:
+              values: ['NEW', 'STABILIZED', 'MATURE', 'LEGACY', 'UNKNOWN']
+      - name: current_market_value
+        description: Current estimated market value in USD
+      - name: appreciation_percent
+        description: Percentage appreciation since acquisition
+      - name: owner_id
+        description: Owner entity identifier
+      - name: asset_manager_id
+        description: Assigned asset manager identifier

@@ -1,0 +1,172 @@
+{
+  "tools": [
+    {
+      "name": "query_portfolio",
+      "displayName": "Query Portfolio Data",
+      "description": "Execute natural language queries over portfolio data in Snowflake. Translates natural language to SQL, applies tenant/RBAC filtering, and returns structured results with generated SQL for transparency.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Natural language question about portfolio (e.g., 'Show me properties in TX with occupancy > 90%' or 'What is our total NOI by property type?')"
+          },
+          "persona_role": {
+            "type": "string",
+            "enum": ["advisor", "analyst", "executive", "readonly"],
+            "description": "User's role for access control: advisor (full access), analyst (query + reports), executive (high-level summaries), readonly (view only)"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "User identifier for rate limiting (60 req/min per user) and audit logging"
+          },
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant/organization identifier for multi-tenant isolation"
+          }
+        },
+        "required": ["query", "persona_role", "user_id", "tenant_id"]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "search_documents",
+      "displayName": "Search Property Documents",
+      "description": "Semantic search across property corpus using vector embeddings. Finds relevant documents (leases, valuations, CAP statements, surveys, etc.) with relevance ranking. Supports optional property and document type filtering.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Natural language search query (e.g., 'lease renewal terms for major tenants' or 'property valuations from 2024')"
+          },
+          "property_id": {
+            "type": "string",
+            "description": "Optional: filter to documents from specific property"
+          },
+          "doc_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["lease", "valuation", "cap_statement", "survey", "environmental", "appraisal", "insurance", "permit"]
+            },
+            "description": "Optional: filter by document type(s)"
+          },
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant identifier for access control"
+          },
+          "top_k": {
+            "type": "integer",
+            "description": "Number of results to return (default: 5, max: 50)",
+            "default": 5,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["query", "tenant_id"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_property_scorecard",
+      "displayName": "Get Property Performance Scorecard",
+      "description": "Retrieve comprehensive performance metrics for a specific property including occupancy, financial KPIs, lease schedule, tenant quality, and risk indicators. Optional 24-month historical trends.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "description": "Property identifier (e.g., 'PROP-12345')"
+          },
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant identifier"
+          },
+          "include_historical": {
+            "type": "boolean",
+            "description": "Include 24-month historical trends and YoY comparisons",
+            "default": false
+          }
+        },
+        "required": ["property_id", "tenant_id"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_portfolio_summary",
+      "displayName": "Get Portfolio Summary",
+      "description": "Retrieve aggregate portfolio-level KPIs: total NOI, portfolio occupancy, weighted average cap rate, tenant concentration, lease expiration schedule, and geographic distribution.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant identifier"
+          },
+          "as_of_date": {
+            "type": "string",
+            "description": "Report date in YYYY-MM-DD format. Defaults to today.",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": ["tenant_id"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_properties",
+      "displayName": "List Portfolio Properties",
+      "description": "List all properties in portfolio with optional filters by state, property type, or occupancy threshold. Returns basic property info and key metrics for easy browsing.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant identifier"
+          },
+          "state": {
+            "type": "string",
+            "description": "Optional: filter by state (e.g., 'CA', 'TX', 'NY')",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "property_type": {
+            "type": "string",
+            "enum": ["office", "industrial", "retail", "multifamily", "mixed"],
+            "description": "Optional: filter by property type"
+          },
+          "min_occupancy_pct": {
+            "type": "number",
+            "description": "Optional: filter to properties with at least this occupancy percentage",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum results (default: 100, max: 1000)",
+            "default": 100,
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": ["tenant_id"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

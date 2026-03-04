@@ -1,0 +1,180 @@
+version: 2
+
+sources:
+  - name: raw
+    database: PORTFOLIO_INTELLIGENCE
+    schema: RAW
+    tables:
+      - name: properties
+        description: Raw property master data from core property management system
+        columns:
+          - name: property_id
+            description: Unique property identifier
+            tests:
+              - unique
+              - not_null
+
+      - name: work_orders
+        description: Raw maintenance and repair work order records
+        columns:
+          - name: work_order_id
+            description: Unique work order identifier
+            tests:
+              - unique
+              - not_null
+
+      - name: leases
+        description: Raw lease agreement records with tenant assignment
+        columns:
+          - name: lease_id
+            description: Unique lease identifier
+            tests:
+              - unique
+              - not_null
+
+      - name: financials
+        description: Raw property-level financial statements by period
+        columns:
+          - name: financial_id
+            description: Unique financial record identifier
+            tests:
+              - unique
+              - not_null
+
+      - name: occupancy
+        description: Raw occupancy snapshot records by reporting date
+        columns:
+          - name: occupancy_id
+            description: Unique occupancy record identifier
+            tests:
+              - unique
+              - not_null
+
+models:
+  - name: stg_properties
+    description: Cleaned property data with standardized naming and computed attributes
+    columns:
+      - name: property_id
+        description: Unique property identifier (primary key)
+        tests:
+          - unique
+          - not_null
+      - name: property_name
+        description: Property name or identifier
+        tests:
+          - not_null
+      - name: property_type
+        description: Type of property (Apartment, House, Commercial, etc.)
+      - name: total_units
+        description: Total number of units in property
+      - name: total_square_feet
+        description: Total rentable square footage
+      - name: property_age_years
+        description: Age of property in years since acquisition
+      - name: is_multifamily
+        description: Boolean flag indicating if property is multifamily (5+ units)
+      - name: data_quality_flag
+        description: Data quality assessment (VALID, INCOMPLETE, INVALID)
+
+  - name: stg_work_orders
+    description: Cleaned work order maintenance records with priority and efficiency metrics
+    columns:
+      - name: work_order_id
+        description: Unique work order identifier (primary key)
+        tests:
+          - unique
+          - not_null
+      - name: property_id
+        description: Foreign key to properties
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_properties')
+              field: property_id
+      - name: priority_score
+        description: Numeric priority score (1=Low, 2=Medium, 3=High, 4=Critical)
+        tests:
+          - accepted_values:
+              values: [0, 1, 2, 3, 4]
+      - name: days_open
+        description: Number of days from request to completion or current date
+      - name: was_completed_timely
+        description: Boolean flag if work completed within 7 days
+
+  - name: stg_leases
+    description: Cleaned lease records with renewal risk and pricing metrics
+    columns:
+      - name: lease_id
+        description: Unique lease identifier (primary key)
+        tests:
+          - unique
+          - not_null
+      - name: property_id
+        description: Foreign key to properties
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_properties')
+              field: property_id
+      - name: monthly_rent
+        description: Monthly lease payment amount in USD
+      - name: months_remaining
+        description: Months until lease expiration
+      - name: is_expiring_soon
+        description: Boolean flag if lease expires within 90 days
+      - name: renewal_risk_category
+        description: Renewal risk classification (RISK_HIGH, RISK_MEDIUM, RISK_LOW, RISK_NONE)
+        tests:
+          - accepted_values:
+              values: ['RISK_HIGH', 'RISK_MEDIUM', 'RISK_LOW', 'RISK_NONE']
+
+  - name: stg_financials
+    description: Cleaned financial records with profitability and variance metrics
+    columns:
+      - name: financial_id
+        description: Unique financial record identifier (primary key)
+        tests:
+          - unique
+          - not_null
+      - name: property_id
+        description: Foreign key to properties
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_properties')
+              field: property_id
+      - name: reporting_period
+        description: Period end date for financial statement
+      - name: gross_rental_income
+        description: Total rental income before vacancy loss
+      - name: actual_noi
+        description: Net Operating Income (Revenue - Operating Expenses)
+      - name: noi_margin_percent
+        description: NOI as percentage of Effective Gross Income (0-100%)
+      - name: budget_variance_pct
+        description: Percentage variance of actual NOI vs budget NOI
+
+  - name: stg_occupancy
+    description: Cleaned occupancy snapshots with vacancy metrics and health status
+    columns:
+      - name: occupancy_id
+        description: Unique occupancy record identifier (primary key)
+        tests:
+          - unique
+          - not_null
+      - name: property_id
+        description: Foreign key to properties
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_properties')
+              field: property_id
+      - name: occupancy_percent
+        description: Percentage of units occupied (0-100%)
+      - name: vacancy_rate
+        description: Decimal vacancy rate (0-1.0)
+      - name: occupancy_health_status
+        description: Occupancy health classification
+        tests:
+          - accepted_values:
+              values: ['HEALTHY', 'AT_RISK', 'PROBLEM', 'CRITICAL']

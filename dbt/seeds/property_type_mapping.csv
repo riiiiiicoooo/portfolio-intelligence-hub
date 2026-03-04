@@ -1,0 +1,14 @@
+property_type_code,property_type_name,property_category,sub_category,min_units,max_units
+APT,Apartment,Residential,Multifamily,5,500
+MF,Multifamily,Residential,Multifamily,5,500
+TH,Townhome,Residential,Townhome,0,50
+SFR,Single Family Residence,Residential,Single Family,0,5
+RET,Retail,Commercial,Retail,0,0
+OFF,Office,Commercial,Office,0,0
+IND,Industrial,Commercial,Industrial,0,0
+MXD,Mixed Use,Commercial,Mixed Use,0,0
+HTL,Hotel,Hospitality,Hotel,0,0
+RST,Restaurant,Hospitality,Food Service,0,0
+STOR,Storage,Commercial,Storage,0,0
+LAND,Land,Special,Land,0,0
+OTHER,Other,Special,Other,0,0
