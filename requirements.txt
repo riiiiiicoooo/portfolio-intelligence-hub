@@ -1,0 +1,71 @@
+# Core Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Authentication
+PyJWT==2.8.1
+httpx==0.25.2
+
+# Database
+sqlalchemy==2.0.23
+psycopg[binary]==3.9.1
+alembic==1.12.1
+
+# Cache & Sessions
+redis==5.0.1
+aioredis==2.0.1
+
+# Snowflake
+snowflake-sqlalchemy==1.5.0
+snowflake-connector-python==3.6.0
+
+# Vector Database
+supabase==2.1.0
+pgvector==0.2.4
+
+# OpenAI Integration
+openai==1.3.10
+
+# Async HTTP Client
+aiohttp==3.9.1
+
+# Data Processing
+pandas==2.1.3
+numpy==1.26.2
+
+# File Handling
+python-multipart==0.0.6
+python-magic==0.4.27
+
+# Email
+resend==0.3.1
+
+# API Documentation
+swagger-ui-bundle==4.15.5
+
+# Logging & Monitoring
+python-json-logger==2.0.7
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.25.2
+
+# Code Quality
+black==23.12.1
+ruff==0.1.8
+mypy==1.7.1
+
+# Environment
+python-dotenv==1.0.0
+
+# AWS S3
+boto3==1.29.7
+botocore==1.32.7
+
+# Utils
+pydantic-core==2.13.0
+tenacity==8.2.3

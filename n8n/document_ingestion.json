@@ -1,0 +1,283 @@
+{
+  "name": "Document Ingestion Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "f0e0f5d5-0123-47b8-8000-0aaf36a8a0fa",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "84f81c1e-f2b5-4568-8f1b-8e6c0f0a0000",
+      "name": "Document Upload Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "{{ $env.API_BASE_URL }}/api/v1/documents/process",
+        "authentication": "bearerToken",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "doc_id",
+              "value": "={{ $node[\"Document Upload Webhook\"].json.doc_id }}"
+            },
+            {
+              "name": "filename",
+              "value": "={{ $node[\"Document Upload Webhook\"].json.filename }}"
+            },
+            {
+              "name": "s3_url",
+              "value": "={{ $node[\"Document Upload Webhook\"].json.s3_url }}"
+            },
+            {
+              "name": "property_id",
+              "value": "={{ $node[\"Document Upload Webhook\"].json.property_id }}"
+            },
+            {
+              "name": "doc_type",
+              "value": "={{ $node[\"Document Upload Webhook\"].json.doc_type }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "94c91d2f-e3c6-5679-9f2c-9f7d1f1b1111",
+      "name": "Call Document Processing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "credentials": {
+        "httpHeaderAuth": "api_auth_token"
+      }
+    },
+    {
+      "parameters": {
+        "waitTime": 300,
+        "waitUnit": "seconds"
+      },
+      "id": "a5d92e3g-f4d7-6790-ag3d-ag8e2g2c2222",
+      "name": "Wait for Processing",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_BASE_URL }}/api/v1/documents/{{ $node[\"Document Upload Webhook\"].json.doc_id }}/status",
+        "authentication": "bearerToken",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "b6e03f4h-g5e8-7801-bh4e-bh9f3h3d3333",
+      "name": "Check Processing Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": "api_auth_token"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $node[\"Check Processing Status\"].json.status }}",
+              "value2": "completed",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "c7f14g5i-h6f9-8912-ci5f-ci0g4i4e4444",
+      "name": "Success Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "nodeCredentialType": "resendApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from",
+              "value": "noreply@portfoliointelligence.hub"
+            },
+            {
+              "name": "to",
+              "value": "={{ $node[\"Document Upload Webhook\"].json.user_email }}"
+            },
+            {
+              "name": "subject",
+              "value": "Document Processing Complete"
+            },
+            {
+              "name": "html",
+              "value": "<h2>Document Processing Complete</h2><p>Your document {{ $node[\"Document Upload Webhook\"].json.filename }} has been successfully processed and indexed.</p><a href='{{ $env.APP_BASE_URL }}/documents/{{ $node[\"Document Upload Webhook\"].json.doc_id }}'>View Document</a>"
+            }
+          ]
+        }
+      },
+      "id": "d8g25h6j-i7ga-9a23-dj6g-dj1h5j5f5555",
+      "name": "Send Success Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 150],
+      "credentials": {
+        "resendApi": "resend_api_key"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/{{ $env.SLACK_WEBHOOK_ID }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": ":warning: Document processing failed"
+            },
+            {
+              "name": "blocks",
+              "value": "={{ [{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"*Document Processing Failed*\\nDoc ID: \" + $node[\"Document Upload Webhook\"].json.doc_id + \"\\nFilename: \" + $node[\"Document Upload Webhook\"].json.filename + \"\\nError: \" + $node[\"Check Processing Status\"].json.error}}] }}"
+            }
+          ]
+        }
+      },
+      "id": "e9h36i7k-j8hb-ab34-ek7h-ek2i6k6g6666",
+      "name": "Send Slack Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 450]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_BASE_URL }}/api/v1/monitoring/log-error",
+        "authentication": "bearerToken",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "error_type",
+              "value": "document_processing_failed"
+            },
+            {
+              "name": "doc_id",
+              "value": "={{ $node[\"Document Upload Webhook\"].json.doc_id }}"
+            },
+            {
+              "name": "error_message",
+              "value": "={{ $node[\"Check Processing Status\"].json.error }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "fa07j8l-k9ic-bc45-fl8i-fl3j7l7h7777",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1450, 450],
+      "credentials": {
+        "httpHeaderAuth": "api_auth_token"
+      }
+    }
+  ],
+  "connections": {
+    "Document Upload Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call Document Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Document Processing": {
+      "main": [
+        [
+          {
+            "node": "Wait for Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Processing": {
+      "main": [
+        [
+          {
+            "node": "Check Processing Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Processing Status": {
+      "main": [
+        [
+          {
+            "node": "Success Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Check": {
+      "main": [
+        [
+          {
+            "node": "Send Success Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack Alert": {
+      "main": [
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "saveManualExecutions": true,
+    "executionOrder": "v1"
+  }
+}

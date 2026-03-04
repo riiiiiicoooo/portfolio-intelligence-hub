@@ -1,0 +1,235 @@
+{
+  "name": "Query Performance Monitoring",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": "every hour"
+      },
+      "id": "1a1a1a1a-2b2b-3c3c-4d4d-5e5e5e5e5e5e",
+      "name": "Hourly Schedule",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.API_BASE_URL }}/api/v1/monitoring/query-metrics?hours=1",
+        "authentication": "bearerToken",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "2b2b2b2b-3c3c-4d4d-5e5e-6f6f6f6f6f6f",
+      "name": "Fetch Query Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "credentials": {
+        "httpHeaderAuth": "api_auth_token"
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate metrics from query results\nconst metrics = $input.all()[0].json;\n\nconst totalQueries = metrics.queries.length;\nconst failedQueries = metrics.queries.filter(q => q.status === 'failed').length;\nconst errorRate = totalQueries > 0 ? (failedQueries / totalQueries) * 100 : 0;\n\nconst executionTimes = metrics.queries.map(q => q.execution_time_ms).filter(t => t);\nconst avgLatency = executionTimes.length > 0 \n  ? executionTimes.reduce((a, b) => a + b) / executionTimes.length \n  : 0;\n\nconst maxLatency = executionTimes.length > 0 ? Math.max(...executionTimes) : 0;\n\nreturn {\n  totalQueries,\n  failedQueries,\n  errorRate,\n  avgLatency,\n  maxLatency,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "3c3c3c3c-4d4d-5e5e-6f6f-7g7g7g7g7g7g",
+      "name": "Calculate Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $node[\"Calculate Metrics\"].json.errorRate }}",
+              "value2": "5",
+              "operation": "greaterThan"
+            },
+            {
+              "value1": "={{ $node[\"Calculate Metrics\"].json.avgLatency }}",
+              "value2": "10000",
+              "operation": "greaterThan",
+              "combineOperation": "or"
+            }
+          ]
+        }
+      },
+      "id": "4d4d4d4d-5e5e-6f6f-7g7g-8h8h8h8h8h8h",
+      "name": "Threshold Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "nodeCredentialType": "resendApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from",
+              "value": "alerts@portfoliointelligence.hub"
+            },
+            {
+              "name": "to",
+              "value": "{{ $env.ALERT_EMAIL }}"
+            },
+            {
+              "name": "subject",
+              "value": ":warning: Portfolio Intelligence Hub - Query Performance Alert"
+            },
+            {
+              "name": "html",
+              "value": "<h2>Query Performance Alert</h2><p>Metrics from the last hour exceed thresholds:</p><ul><li>Error Rate: {{ $node[\"Calculate Metrics\"].json.errorRate.toFixed(2) }}%</li><li>Avg Latency: {{ $node[\"Calculate Metrics\"].json.avgLatency.toFixed(0) }}ms</li><li>Max Latency: {{ $node[\"Calculate Metrics\"].json.maxLatency }}ms</li><li>Total Queries: {{ $node[\"Calculate Metrics\"].json.totalQueries }}</li><li>Failed Queries: {{ $node[\"Calculate Metrics\"].json.failedQueries }}</li></ul><p><a href='{{ $env.DASHBOARD_URL }}/monitoring'>View Dashboard</a></p>"
+            }
+          ]
+        }
+      },
+      "id": "5e5e5e5e-6f6f-7g7g-8h8h-9i9i9i9i9i9i",
+      "name": "Send Alert Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 150],
+      "credentials": {
+        "resendApi": "resend_api_key"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/{{ $env.SLACK_WEBHOOK_ID }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": ":warning: Query Performance Alert"
+            },
+            {
+              "name": "blocks",
+              "value": "={{ [{\"type\": \"header\", \"text\": {\"type\": \"plain_text\", \"text\": \"Query Performance Alert\"}}, {\"type\": \"section\", \"fields\": [{\"type\": \"mrkdwn\", \"text\": \"*Error Rate:*\\n\" + $node[\"Calculate Metrics\"].json.errorRate.toFixed(2) + \"%\"}, {\"type\": \"mrkdwn\", \"text\": \"*Avg Latency:*\\n\" + $node[\"Calculate Metrics\"].json.avgLatency.toFixed(0) + \"ms\"}, {\"type\": \"mrkdwn\", \"text\": \"*Max Latency:*\\n\" + $node[\"Calculate Metrics\"].json.maxLatency + \"ms\"}, {\"type\": \"mrkdwn\", \"text\": \"*Total Queries:*\\n\" + $node[\"Calculate Metrics\"].json.totalQueries}]}] }}"
+            }
+          ]
+        }
+      },
+      "id": "6f6f6f6f-7g7g-8h8h-9i9i-0j0j0j0j0j0j",
+      "name": "Send Slack Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 450]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_BASE_URL }}/api/v1/monitoring/log-metrics",
+        "authentication": "bearerToken",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "total_queries",
+              "value": "={{ $node[\"Calculate Metrics\"].json.totalQueries }}"
+            },
+            {
+              "name": "failed_queries",
+              "value": "={{ $node[\"Calculate Metrics\"].json.failedQueries }}"
+            },
+            {
+              "name": "error_rate",
+              "value": "={{ $node[\"Calculate Metrics\"].json.errorRate }}"
+            },
+            {
+              "name": "avg_latency_ms",
+              "value": "={{ $node[\"Calculate Metrics\"].json.avgLatency }}"
+            },
+            {
+              "name": "max_latency_ms",
+              "value": "={{ $node[\"Calculate Metrics\"].json.maxLatency }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $node[\"Calculate Metrics\"].json.timestamp }}"
+            }
+          ]
+        }
+      },
+      "id": "7g7g7g7g-8h8h-9i9i-0j0j-1k1k1k1k1k1k",
+      "name": "Log Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 300],
+      "credentials": {
+        "httpHeaderAuth": "api_auth_token"
+      }
+    }
+  ],
+  "connections": {
+    "Hourly Schedule": {
+      "main": [
+        [
+          {
+            "node": "Fetch Query Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Query Metrics": {
+      "main": [
+        [
+          {
+            "node": "Calculate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Metrics": {
+      "main": [
+        [
+          {
+            "node": "Threshold Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Threshold Check": {
+      "main": [
+        [
+          {
+            "node": "Send Alert Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "saveManualExecutions": false,
+    "executionOrder": "v1"
+  }
+}

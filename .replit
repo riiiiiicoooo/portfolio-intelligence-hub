@@ -1,0 +1,8 @@
+run = "make dev"
+entrypoint = "src/main.py"
+
+[env]
+PYTHONUNBUFFERED = "1"
+
+[nix]
+channel = "stable-24.05"

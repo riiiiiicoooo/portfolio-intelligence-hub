@@ -1,0 +1,640 @@
+# Portfolio Intelligence Hub - Cursor Rules & Architecture Guide
+
+## Product Overview
+
+**Portfolio Intelligence Hub** is a PM portfolio management platform for real estate professionals. It provides:
+- **Intelligent Portfolio Analysis**: RAG-powered semantic search over property data
+- **Natural Language Queries**: Text-to-SQL engine that converts user questions to Snowflake queries
+- **Market Intelligence**: Comparative analysis, trend detection, market insights
+- **RBAC & Multi-tenancy**: Role-based access control with tenant isolation
+- **Real-time Collaboration**: Live updates, comment threads, deal tracking
+
+### Technology Stack
+- **Backend**: Python (FastAPI, LangChain)
+- **Database**: Snowflake (OLAP) + PostgreSQL (OLTP, via Supabase)
+- **Embedding/Vector**: Cohere, pgvector
+- **LLM**: Anthropic Claude (primary), OpenAI (fallback), Cohere (reranking)
+- **Frontend**: Next.js 14, TypeScript, React
+- **Authentication**: Clerk (OIDC)
+- **Real-time**: WebSockets, Redis
+- **Search**: Semantic search with vector similarity + keyword fallback
+
+---
+
+## Architecture Overview
+
+### Core Modules
+
+```
+src/
+├── api/                           # FastAPI route handlers
+│   ├── auth.py                    # OAuth/Clerk integration
+│   ├── portfolio.py               # Portfolio CRUD
+│   ├── rag.py                     # RAG pipeline endpoints
+│   ├── search.py                  # Semantic search endpoints
+│   └── materialized_views.py      # MV refresh, cache management
+├── core/
+│   ├── config.py                  # Pydantic settings
+│   ├── security.py                # JWT, RBAC decorators
+│   └── constants.py               # Enums, magic strings
+├── schemas/
+│   ├── portfolio.py               # Pydantic models
+│   ├── query.py                   # Query request/response
+│   └── user.py                    # User profile schemas
+├── services/                      # Business logic
+│   ├── text_to_sql.py             # SQL generation engine
+│   ├── semantic_search.py         # Vector search logic
+│   ├── rag_pipeline.py            # RAG orchestration
+│   ├── snowflake_service.py       # Snowflake queries
+│   ├── supabase_service.py        # PostgreSQL ops
+│   └── cache_service.py           # Redis caching
+├── db/
+│   ├── migrations/                # Alembic migrations
+│   ├── models.py                  # SQLAlchemy ORM models
+│   └── queries.py                 # Parameterized queries
+├── llm/
+│   ├── clients.py                 # LLM client wrappers
+│   ├── prompts.py                 # Prompt templates
+│   └── parsers.py                 # Response parsing
+├── utils/
+│   ├── logging.py                 # Structured logging
+│   ├── metrics.py                 # Performance tracking
+│   └── validators.py              # Input validation
+├── embeddings/
+│   ├── cohere_client.py           # Cohere embedding service
+│   └── vector_store.py            # pgvector operations
+└── main.py                        # FastAPI app initialization
+
+tests/
+├── unit/                          # Isolated component tests
+├── integration/                   # Service integration tests
+├── e2e/                          # End-to-end workflows
+└── fixtures/                      # Test data & mocks
+```
+
+### Data Flow
+
+1. **Query Ingestion**: User submits natural language question
+2. **Intent Detection**: Classify as SQL query, semantic search, or hybrid
+3. **Context Retrieval**: Fetch relevant embeddings from pgvector
+4. **Text-to-SQL**: Generate Snowflake SQL with safety guardrails
+5. **Execution**: Run on Snowflake, cache results in Redis
+6. **Ranking**: Re-rank results using Cohere
+7. **Response**: Format and return with citations
+
+### Key Design Patterns
+
+- **Service Layer**: Business logic separated from endpoints
+- **Dependency Injection**: FastAPI dependencies for middleware, DB, auth
+- **Async-First**: All I/O operations async (aiohttp, asyncpg)
+- **Error Handling**: Custom exception hierarchy with context
+- **Caching**: Multi-layer (Redis, Snowflake query cache, pgvector cache)
+- **RLS**: Row-level security on Supabase for tenant isolation
+
+---
+
+## User Personas & Query Patterns
+
+### 1. Portfolio Manager (Institutional)
+- **Goal**: Monitor 50-500 properties across multiple funds
+- **Queries**: 
+  - "Show me all apartments in NYC with >8% cap rate, sorted by NOI"
+  - "Which properties have tenant issues in Q4?"
+  - "Compare our performance vs. market benchmarks"
+- **Expected**: SQL generation, trend analysis, dashboards
+- **Integration**: Multi-property views, performance scoring
+
+### 2. Investment Analyst
+- **Goal**: Due diligence and market research
+- **Queries**:
+  - "What are market trends in industrial real estate in Austin?"
+  - "Find similar properties to compare valuation"
+  - "Extract key financials from 50 property documents"
+- **Expected**: Semantic search, document extraction, comparables
+- **Integration**: Document uploads, external data sources
+
+### 3. Real Estate Professional (Agent/Broker)
+- **Goal**: Client management, market intelligence
+- **Queries**:
+  - "List available properties matching client criteria"
+  - "How have prices changed in this neighborhood?"
+  - "Show me market statistics for this zip code"
+- **Expected**: Natural language, visual representations
+- **Integration**: CRM sync, email workflows
+
+### 4. Asset Manager
+- **Goal**: Risk assessment and performance optimization
+- **Queries**:
+  - "Which properties have hidden risks?"
+  - "What's the depreciation trajectory for my portfolio?"
+  - "Find operational improvement opportunities"
+- **Expected**: Predictive analysis, risk scoring
+- **Integration**: Alerts, reporting, compliance
+
+---
+
+## Code Conventions
+
+### Python Style
+- **Type Hints**: Always use them (PEP 484)
+  ```python
+  def query_portfolio(
+      user_id: str,
+      filters: PortfolioFilter,
+      limit: int = 50
+  ) -> list[Property]:
+      """Process and return filtered properties."""
+      pass
+  ```
+
+- **Docstrings**: Google style, include Args, Returns, Raises
+  ```python
+  def text_to_sql(query: str) -> str:
+      """Convert natural language to Snowflake SQL.
+      
+      Args:
+          query: User's natural language question
+          
+      Returns:
+          Valid Snowflake SQL string
+          
+      Raises:
+          InvalidQueryError: If query violates safety rules
+      """
+      pass
+  ```
+
+- **Dataclasses**: Use for data containers
+  ```python
+  @dataclass
+  class QueryResult:
+      data: list[dict]
+      total_rows: int
+      execution_time_ms: float
+      citations: list[str]
+  ```
+
+- **Async**: Always use async/await for I/O
+  ```python
+  async def fetch_embeddings(property_ids: list[str]) -> list[list[float]]:
+      async with aiohttp.ClientSession() as session:
+          # async operations
+          pass
+  ```
+
+### Naming Conventions
+- Classes: PascalCase (TextToSqlEngine, SemanticSearchService)
+- Functions: snake_case (query_snowflake, get_property_by_id)
+- Constants: UPPER_SNAKE_CASE (MAX_QUERY_TOKENS, DEFAULT_BATCH_SIZE)
+- Private: _leading_underscore (_format_sql, _validate_token)
+- Booleans: has_*, is_*, can_* (is_valid, has_permissions)
+
+### Error Handling
+```python
+from src.core.exceptions import (
+    InvalidQueryError,
+    SnowflakeExecutionError,
+    UnauthorizedError,
+)
+
+try:
+    result = await execute_query(sql)
+except InvalidQueryError as e:
+    logger.warning(f"Invalid query: {e.context}")
+    raise
+except SnowflakeExecutionError as e:
+    logger.error(f"Snowflake error: {e.query}", extra={"error_code": e.code})
+    raise
+```
+
+---
+
+## Database Patterns
+
+### Snowflake Schema Architecture
+
+```sql
+-- RAG-optimized schema
+CREATE SCHEMA RAG_SCHEMA;
+
+CREATE TABLE RAG_SCHEMA.PROPERTIES (
+    property_id VARCHAR,
+    tenant_id VARCHAR,
+    name VARCHAR,
+    address VARCHAR,
+    property_type VARCHAR,
+    acquisition_date DATE,
+    purchase_price NUMERIC(15,2),
+    current_valuation NUMERIC(15,2),
+    noi NUMERIC(15,2),
+    cap_rate DECIMAL(5,2),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    PRIMARY KEY (property_id, tenant_id)
+);
+
+CREATE TABLE RAG_SCHEMA.FINANCIAL_METRICS (
+    metric_id VARCHAR,
+    property_id VARCHAR,
+    tenant_id VARCHAR,
+    month DATE,
+    revenue NUMERIC(15,2),
+    expenses NUMERIC(15,2),
+    noi NUMERIC(15,2),
+    occupancy_rate DECIMAL(5,2),
+    created_at TIMESTAMP,
+    PRIMARY KEY (metric_id)
+);
+
+-- Materialized View for common aggregations
+CREATE MATERIALIZED VIEW RAG_SCHEMA.PROPERTY_PERFORMANCE AS
+SELECT 
+    p.property_id,
+    p.tenant_id,
+    p.name,
+    COUNT(*) as transaction_count,
+    AVG(fm.noi) as avg_noi,
+    AVG(fm.occupancy_rate) as avg_occupancy,
+    MAX(fm.month) as latest_month
+FROM RAG_SCHEMA.PROPERTIES p
+LEFT JOIN RAG_SCHEMA.FINANCIAL_METRICS fm 
+    ON p.property_id = fm.property_id
+GROUP BY p.property_id, p.tenant_id, p.name;
+```
+
+### PostgreSQL/Supabase Schema
+
+```sql
+-- OLTP schema for user data, embeddings, RLS
+CREATE TABLE public.users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id),
+    email TEXT UNIQUE,
+    full_name TEXT,
+    role TEXT CHECK (role IN ('admin', 'analyst', 'viewer')),
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE public.properties_embeddings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    property_id VARCHAR,
+    tenant_id UUID REFERENCES tenants(id),
+    embedding vector(1024),
+    embedding_model TEXT,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own tenant data"
+    ON public.users
+    FOR SELECT
+    USING (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
+```
+
+### Query Best Practices
+- Use parameterized queries always (prevent SQL injection)
+- Leverage Snowflake query result cache
+- Batch operations for embeddings (1000 records per batch)
+- Index on tenant_id and date ranges
+- Partition large tables by date/tenant
+
+---
+
+## LLM & RAG Pipeline
+
+### Prompt Template Structure
+
+```python
+SYSTEM_PROMPT = """You are a real estate data analyst assisting portfolio managers.
+Your role is to interpret natural language queries and convert them to precise Snowflake SQL.
+
+Instructions:
+1. Only use tables and columns from the provided schema
+2. Filter by tenant_id for multi-tenancy
+3. Use DATE filters for time-series queries
+4. Return JSON-formatted results where appropriate
+5. Flag if query seems unsafe or outside scope
+
+Schema:
+{schema}
+
+Examples:
+{examples}
+"""
+
+USER_QUERY_TEMPLATE = """Convert this query to Snowflake SQL:
+"{user_query}"
+
+Current user tenant_id: {tenant_id}
+Available date range: {date_range}
+
+Return:
+1. SQL query (in <sql></sql> tags)
+2. Confidence score (0-100)
+3. Any assumptions made
+"""
+```
+
+### RAG Pipeline Flow
+
+```python
+async def rag_pipeline(
+    user_query: str,
+    user_id: str,
+    mode: Literal["sql", "semantic", "hybrid"] = "hybrid"
+) -> RAGResult:
+    """Execute RAG pipeline with multi-modal search."""
+    
+    # 1. Get user context
+    user = await supabase_service.get_user(user_id)
+    tenant_id = user.tenant_id
+    
+    # 2. Intent classification
+    intent = await classify_intent(user_query)
+    
+    # 3. Retrieve context
+    if intent in ["sql", "hybrid"]:
+        # Fetch schema, recent queries, templates
+        context = await get_schema_context(tenant_id)
+    
+    if intent in ["semantic", "hybrid"]:
+        # Fetch similar properties via embeddings
+        embeddings = await cohere_client.embed([user_query])
+        similar = await vector_store.search(
+            embeddings[0],
+            tenant_id=tenant_id,
+            limit=5
+        )
+    
+    # 4. Generate SQL or semantic query
+    if intent == "sql":
+        sql = await text_to_sql_engine.generate(user_query, context)
+        results = await snowflake_service.execute(sql)
+    elif intent == "semantic":
+        results = similar
+    else:  # hybrid
+        sql = await text_to_sql_engine.generate(user_query, context)
+        db_results = await snowflake_service.execute(sql)
+        ranked = await cohere_client.rerank(
+            query=user_query,
+            documents=[json.dumps(r) for r in db_results]
+        )
+        results = [db_results[i] for i in ranked.top_indices]
+    
+    # 5. Format and return
+    return RAGResult(
+        data=results,
+        mode=intent,
+        execution_time_ms=elapsed,
+        citations=extract_citations(context, results)
+    )
+```
+
+### Safety Guardrails
+
+```python
+BLOCKED_PATTERNS = [
+    r"DROP\s+(TABLE|SCHEMA|DATABASE)",
+    r"DELETE\s+FROM",
+    r"TRUNCATE",
+    r"CREATE\s+OR\s+REPLACE\s+USER",
+]
+
+def validate_generated_sql(sql: str) -> tuple[bool, str]:
+    """Validate SQL for safety."""
+    sql_upper = sql.upper()
+    
+    for pattern in BLOCKED_PATTERNS:
+        if re.search(pattern, sql_upper):
+            return False, f"Query violates policy: {pattern}"
+    
+    # Ensure tenant_id filter
+    if "tenant_id" not in sql_upper:
+        return False, "Query must filter by tenant_id"
+    
+    return True, ""
+```
+
+---
+
+## Authentication & Authorization
+
+### Clerk Integration
+```python
+from src.core.security import get_current_user
+
+@app.post("/api/portfolio")
+async def create_portfolio(
+    req: PortfolioCreate,
+    user: User = Depends(get_current_user)
+):
+    """Create new portfolio. Only accessible to portfolio managers."""
+    if user.role not in ["admin", "portfolio_manager"]:
+        raise UnauthorizedError(f"User {user.id} lacks required role")
+    
+    return await portfolio_service.create(req, tenant_id=user.tenant_id)
+```
+
+### RBAC Levels
+- **admin**: Full access, user management, billing
+- **portfolio_manager**: CRUD on portfolio, view all team data
+- **analyst**: Create/read queries, view assigned portfolios
+- **viewer**: Read-only access
+
+---
+
+## Testing Strategy
+
+### Unit Tests
+```python
+# tests/unit/llm/test_text_to_sql.py
+import pytest
+from src.llm.text_to_sql import TextToSqlEngine
+
+@pytest.fixture
+def engine():
+    return TextToSqlEngine()
+
+@pytest.mark.asyncio
+async def test_simple_query(engine):
+    sql = await engine.generate(
+        "Show me all apartments in NYC"
+    )
+    assert "PROPERTY_TYPE" in sql
+    assert "WHERE" in sql
+    
+@pytest.mark.asyncio
+async def test_safety_validation(engine):
+    with pytest.raises(InvalidQueryError):
+        await engine.generate("DROP TABLE properties")
+```
+
+### Integration Tests
+```python
+@pytest.mark.asyncio
+async def test_rag_pipeline_end_to_end(client):
+    response = await client.post(
+        "/api/rag/query",
+        json={"query": "Show me my top 10 properties by NOI"}
+    )
+    assert response.status_code == 200
+    assert "data" in response.json()
+```
+
+### Fixtures
+```python
+@pytest.fixture
+async def mock_snowflake(mocker):
+    mock = mocker.AsyncMock()
+    mock.execute.return_value = [
+        {"property_id": "p1", "noi": 50000},
+        {"property_id": "p2", "noi": 60000},
+    ]
+    return mock
+```
+
+---
+
+## Deployment & DevOps
+
+### Environment Management
+- `.env.example`: Template with all vars
+- Vercel for Next.js (auto-deploys from main)
+- FastAPI service: Docker container on Cloud Run / Railway
+- Snowflake: Cloud-hosted (no deployment needed)
+- Supabase: Cloud-hosted (migrations via scripts)
+
+### Monitoring
+- Log aggregation: JSON-structured logs to CloudLogging
+- Metrics: Track query latency, cache hit rates, token usage
+- Alerts: PagerDuty for critical errors
+- Profiling: Track slow queries, embedding generation
+
+### Database Migrations
+```bash
+# Create migration
+alembic revision --autogenerate -m "Add column"
+
+# Apply migrations
+alembic upgrade head
+
+# Rollback
+alembic downgrade -1
+```
+
+---
+
+## Key Files Reference
+
+| File | Purpose |
+|------|---------|
+| `src/main.py` | FastAPI app, route registration, middleware |
+| `src/core/config.py` | Pydantic settings, env vars |
+| `src/services/text_to_sql.py` | Text-to-SQL engine with safety |
+| `src/services/semantic_search.py` | Vector search, embeddings |
+| `src/api/rag.py` | RAG pipeline endpoints |
+| `src/db/models.py` | SQLAlchemy ORM models |
+| `tests/conftest.py` | Pytest fixtures, mocks |
+| `docker-compose.yml` | Local dev environment |
+| `vercel.json` | Frontend deployment config |
+
+---
+
+## Common Tasks
+
+### Add a New Endpoint
+1. Create Pydantic schema in `src/schemas/`
+2. Create service method in `src/services/`
+3. Add route in `src/api/`
+4. Write tests in `tests/`
+5. Run `make lint` and `make test`
+
+### Add Snowflake Table
+1. Create Alembic migration: `alembic revision -m "add table"`
+2. Update schema context for RAG
+3. Update test fixtures
+4. Document in schema reference
+
+### Deploy to Production
+1. Push to main branch (GitHub)
+2. Vercel auto-deploys frontend
+3. Backend: `git tag v1.0.0 && git push origin v1.0.0`
+4. Cloud Run picks up tag and deploys
+5. Verify in Vercel/Cloud Run dashboards
+
+---
+
+## File Structure Conventions
+
+```
+src/
+├── main.py              # 50-100 lines: app setup
+├── api/                 # All endpoint handlers
+│   ├── __init__.py
+│   ├── auth.py
+│   └── portfolio.py
+├── services/            # Business logic, >100 lines per file OK
+│   ├── text_to_sql.py
+│   └── rag_pipeline.py
+├── schemas/             # Pydantic models only
+│   └── portfolio.py
+└── utils/              # Helpers, validators
+    └── logging.py
+```
+
+Keep modules focused: If a file exceeds 300 lines, split it.
+
+---
+
+## Version Control
+
+- Branch naming: `feature/add-sentiment-analysis`, `fix/cache-invalidation`, `chore/update-deps`
+- Commit style: "feat: Text-to-SQL safety validation"
+- PRs require 1 approval and passing tests
+- Squash commits before merge
+
+---
+
+## Performance Optimization
+
+1. **Query Caching**: Store frequent queries in Redis (24h TTL)
+2. **Embedding Batching**: Process in batches of 1000
+3. **Connection Pooling**: Use asyncpg pools (min=5, max=20)
+4. **Snowflake Optimization**: Leverage result cache, cluster keys
+5. **Vector Index**: Tune pgvector to HNSW with ef_construction=64
+
+---
+
+## Troubleshooting
+
+**Snowflake Connection Fails**
+- Check SNOWFLAKE_ACCOUNT format (account_id.region.cloud)
+- Verify firewall allows outbound 443
+- Test credentials with `snowflake-connector-python`
+
+**Embeddings Slow**
+- Check batch size (max 1000 per call)
+- Monitor Cohere API rate limits (100 req/min)
+- Ensure vector store has indexes
+
+**RAG Gives Wrong Results**
+- Test with simpler query first
+- Check schema context is complete
+- Run safety validation on generated SQL
+- Review Claude/OpenAI response for reasoning
+
+---
+
+## Additional Resources
+
+- Snowflake Docs: https://docs.snowflake.com
+- LangChain: https://python.langchain.com/docs
+- FastAPI: https://fastapi.tiangolo.com
+- Supabase: https://supabase.com/docs
+- Cohere: https://docs.cohere.com
+
+Last Updated: 2025-03-04
+Maintained by: Jacob George

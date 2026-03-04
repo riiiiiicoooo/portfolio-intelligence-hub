@@ -1,0 +1,586 @@
+{
+  "properties": [
+    {
+      "property_id": 101,
+      "property_name": "Sunset Apartments",
+      "property_type": "apartment",
+      "address": "123 Main St, Los Angeles, CA 90001",
+      "units_count": 45,
+      "valuation": 8500000,
+      "cap_rate": 0.045,
+      "noi_annual": 382500,
+      "year_built": 2005,
+      "last_renovation": 2020
+    },
+    {
+      "property_id": 102,
+      "property_name": "Downtown Office Tower",
+      "property_type": "commercial",
+      "address": "456 Market St, San Francisco, CA 94102",
+      "units_count": 30,
+      "valuation": 12500000,
+      "cap_rate": 0.055,
+      "noi_annual": 687500,
+      "year_built": 2010,
+      "last_renovation": 2022
+    },
+    {
+      "property_id": 103,
+      "property_name": "Grand Plaza Retail",
+      "property_type": "retail",
+      "address": "789 5th Ave, New York, NY 10001",
+      "units_count": 12,
+      "valuation": 6200000,
+      "cap_rate": 0.052,
+      "noi_annual": 322400,
+      "year_built": 2008,
+      "last_renovation": 2019
+    },
+    {
+      "property_id": 104,
+      "property_name": "Industrial Hub",
+      "property_type": "industrial",
+      "address": "321 Industrial Blvd, Chicago, IL 60601",
+      "units_count": 8,
+      "valuation": 4500000,
+      "cap_rate": 0.062,
+      "noi_annual": 279000,
+      "year_built": 2012,
+      "last_renovation": 2021
+    },
+    {
+      "property_id": 105,
+      "property_name": "Harbor Bay Apartments",
+      "property_type": "apartment",
+      "address": "555 Bay View, San Diego, CA 92101",
+      "units_count": 120,
+      "valuation": 18000000,
+      "cap_rate": 0.048,
+      "noi_annual": 864000,
+      "year_built": 2003,
+      "last_renovation": 2023
+    },
+    {
+      "property_id": 106,
+      "property_name": "Tech Park Office",
+      "property_type": "commercial",
+      "address": "100 Silicon Valley Way, Mountain View, CA 94040",
+      "units_count": 25,
+      "valuation": 11000000,
+      "cap_rate": 0.058,
+      "noi_annual": 638000,
+      "year_built": 2015,
+      "last_renovation": 2023
+    },
+    {
+      "property_id": 107,
+      "property_name": "Fashion District Retail",
+      "property_type": "retail",
+      "address": "200 Fashion Lane, Miami, FL 33101",
+      "units_count": 18,
+      "valuation": 7800000,
+      "cap_rate": 0.051,
+      "noi_annual": 397800,
+      "year_built": 2007,
+      "last_renovation": 2020
+    },
+    {
+      "property_id": 108,
+      "property_name": "East Side Warehouse",
+      "property_type": "industrial",
+      "address": "750 Warehouse Row, Houston, TX 77001",
+      "units_count": 6,
+      "valuation": 3200000,
+      "cap_rate": 0.065,
+      "noi_annual": 208000,
+      "year_built": 2018,
+      "last_renovation": 2023
+    },
+    {
+      "property_id": 109,
+      "property_name": "Uptown Living Complex",
+      "property_type": "apartment",
+      "address": "888 Highland Ave, Denver, CO 80202",
+      "units_count": 85,
+      "valuation": 12800000,
+      "cap_rate": 0.050,
+      "noi_annual": 640000,
+      "year_built": 2006,
+      "last_renovation": 2021
+    },
+    {
+      "property_id": 110,
+      "property_name": "Central Station Mixed Use",
+      "property_type": "commercial",
+      "address": "1000 Central Ave, Boston, MA 02101",
+      "units_count": 40,
+      "valuation": 14200000,
+      "cap_rate": 0.056,
+      "noi_annual": 795200,
+      "year_built": 2011,
+      "last_renovation": 2022
+    }
+  ],
+  "units": [
+    {
+      "unit_id": 1001,
+      "property_id": 101,
+      "unit_number": "101",
+      "unit_type": "studio",
+      "bedrooms": 0,
+      "bathrooms": 1,
+      "square_feet": 450,
+      "rent_monthly": 1800,
+      "status": "occupied"
+    },
+    {
+      "unit_id": 1002,
+      "property_id": 101,
+      "unit_number": "102",
+      "unit_type": "1br",
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "square_feet": 650,
+      "rent_monthly": 2200,
+      "status": "occupied"
+    },
+    {
+      "unit_id": 1003,
+      "property_id": 101,
+      "unit_number": "103",
+      "unit_type": "2br",
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "square_feet": 950,
+      "rent_monthly": 3100,
+      "status": "vacant"
+    },
+    {
+      "unit_id": 1004,
+      "property_id": 101,
+      "unit_number": "104",
+      "unit_type": "2br",
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "square_feet": 950,
+      "rent_monthly": 3100,
+      "status": "occupied"
+    },
+    {
+      "unit_id": 1005,
+      "property_id": 101,
+      "unit_number": "105",
+      "unit_type": "3br",
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "square_feet": 1200,
+      "rent_monthly": 4000,
+      "status": "occupied"
+    },
+    {
+      "unit_id": 2001,
+      "property_id": 105,
+      "unit_number": "501",
+      "unit_type": "1br",
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "square_feet": 700,
+      "rent_monthly": 2500,
+      "status": "occupied"
+    },
+    {
+      "unit_id": 2002,
+      "property_id": 105,
+      "unit_number": "502",
+      "unit_type": "2br",
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "square_feet": 1100,
+      "rent_monthly": 3500,
+      "status": "occupied"
+    },
+    {
+      "unit_id": 2003,
+      "property_id": 109,
+      "unit_number": "301",
+      "unit_type": "1br",
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "square_feet": 680,
+      "rent_monthly": 2400,
+      "status": "occupied"
+    }
+  ],
+  "leases": [
+    {
+      "lease_id": 3001,
+      "property_id": 101,
+      "unit_id": 1001,
+      "tenant_name": "John Smith",
+      "lease_start": "2023-01-15",
+      "lease_end": "2025-01-14",
+      "monthly_rent": 1800,
+      "renewal_option": true,
+      "renewal_option_end": "2025-02-14",
+      "status": "active"
+    },
+    {
+      "lease_id": 3002,
+      "property_id": 101,
+      "unit_id": 1002,
+      "tenant_name": "Sarah Johnson",
+      "lease_start": "2022-06-01",
+      "lease_end": "2025-05-31",
+      "monthly_rent": 2200,
+      "renewal_option": false,
+      "renewal_option_end": null,
+      "status": "active"
+    },
+    {
+      "lease_id": 3003,
+      "property_id": 101,
+      "unit_id": 1004,
+      "tenant_name": "Michael Chen",
+      "lease_start": "2024-01-01",
+      "lease_end": "2026-12-31",
+      "monthly_rent": 3100,
+      "renewal_option": true,
+      "renewal_option_end": "2027-01-31",
+      "status": "active"
+    },
+    {
+      "lease_id": 3004,
+      "property_id": 105,
+      "unit_id": 2001,
+      "tenant_name": "Emma Williams",
+      "lease_start": "2024-03-01",
+      "lease_end": "2025-02-28",
+      "monthly_rent": 2500,
+      "renewal_option": true,
+      "renewal_option_end": "2025-03-31",
+      "status": "active"
+    },
+    {
+      "lease_id": 3005,
+      "property_id": 105,
+      "unit_id": 2002,
+      "tenant_name": "David Brown",
+      "lease_start": "2023-09-01",
+      "lease_end": "2025-08-31",
+      "monthly_rent": 3500,
+      "renewal_option": false,
+      "renewal_option_end": null,
+      "status": "active"
+    },
+    {
+      "lease_id": 3006,
+      "property_id": 109,
+      "unit_id": 2003,
+      "tenant_name": "Lisa Garcia",
+      "lease_start": "2024-07-01",
+      "lease_end": "2025-06-30",
+      "monthly_rent": 2400,
+      "renewal_option": true,
+      "renewal_option_end": "2025-07-31",
+      "status": "active"
+    }
+  ],
+  "work_orders": [
+    {
+      "work_order_id": "WO_001",
+      "property_id": 101,
+      "category": "HVAC",
+      "description": "Replace air filter in Unit 201",
+      "status": "completed",
+      "created_date": "2025-02-01",
+      "completed_date": "2025-02-05",
+      "cost": 150
+    },
+    {
+      "work_order_id": "WO_002",
+      "property_id": 101,
+      "category": "Plumbing",
+      "description": "Fix leak in bathroom Unit 305",
+      "status": "in_progress",
+      "created_date": "2025-02-27",
+      "completed_date": null,
+      "cost": 350
+    },
+    {
+      "work_order_id": "WO_003",
+      "property_id": 101,
+      "category": "Electrical",
+      "description": "Repair broken outlet in lobby",
+      "status": "open",
+      "created_date": "2025-03-03",
+      "completed_date": null,
+      "cost": 200
+    },
+    {
+      "work_order_id": "WO_004",
+      "property_id": 101,
+      "category": "Structural",
+      "description": "Crack in foundation basement",
+      "status": "open",
+      "created_date": "2025-03-02",
+      "completed_date": null,
+      "cost": 5000
+    },
+    {
+      "work_order_id": "WO_005",
+      "property_id": 105,
+      "category": "HVAC",
+      "description": "Inspect central cooling system",
+      "status": "completed",
+      "created_date": "2025-01-15",
+      "completed_date": "2025-01-20",
+      "cost": 400
+    },
+    {
+      "work_order_id": "WO_006",
+      "property_id": 105,
+      "category": "Plumbing",
+      "description": "Clean main drain line",
+      "status": "in_progress",
+      "created_date": "2025-03-01",
+      "completed_date": null,
+      "cost": 750
+    },
+    {
+      "work_order_id": "WO_007",
+      "property_id": 105,
+      "category": "Cosmetic",
+      "description": "Paint common areas",
+      "status": "open",
+      "created_date": "2025-02-20",
+      "completed_date": null,
+      "cost": 2000
+    },
+    {
+      "work_order_id": "WO_008",
+      "property_id": 105,
+      "category": "Electrical",
+      "description": "Upgrade lighting in parking garage",
+      "status": "open",
+      "created_date": "2025-02-15",
+      "completed_date": null,
+      "cost": 3500
+    },
+    {
+      "work_order_id": "WO_009",
+      "property_id": 105,
+      "category": "HVAC",
+      "description": "Replace thermostat Unit 510",
+      "status": "in_progress",
+      "created_date": "2025-03-03",
+      "completed_date": null,
+      "cost": 500
+    },
+    {
+      "work_order_id": "WO_010",
+      "property_id": 109,
+      "category": "Structural",
+      "description": "Repair roof shingles",
+      "status": "completed",
+      "created_date": "2025-01-10",
+      "completed_date": "2025-01-25",
+      "cost": 8000
+    },
+    {
+      "work_order_id": "WO_011",
+      "property_id": 109,
+      "category": "Plumbing",
+      "description": "Replace water heater",
+      "status": "in_progress",
+      "created_date": "2025-02-28",
+      "completed_date": null,
+      "cost": 4500
+    },
+    {
+      "work_order_id": "WO_012",
+      "property_id": 109,
+      "category": "Cosmetic",
+      "description": "Repaint hallways",
+      "status": "open",
+      "created_date": "2025-03-01",
+      "completed_date": null,
+      "cost": 1200
+    }
+  ],
+  "financial_data": [
+    {
+      "property_id": 101,
+      "month": "2025-01",
+      "revenue": 225000,
+      "expenses": 95000,
+      "noi": 130000,
+      "budget_variance": 5000
+    },
+    {
+      "property_id": 101,
+      "month": "2025-02",
+      "revenue": 220000,
+      "expenses": 98000,
+      "noi": 122000,
+      "budget_variance": -3000
+    },
+    {
+      "property_id": 101,
+      "month": "2025-03",
+      "revenue": 225000,
+      "expenses": 96000,
+      "noi": 129000,
+      "budget_variance": 4000
+    },
+    {
+      "property_id": 105,
+      "month": "2025-01",
+      "revenue": 600000,
+      "expenses": 250000,
+      "noi": 350000,
+      "budget_variance": 25000
+    },
+    {
+      "property_id": 105,
+      "month": "2025-02",
+      "revenue": 595000,
+      "expenses": 255000,
+      "noi": 340000,
+      "budget_variance": 15000
+    },
+    {
+      "property_id": 105,
+      "month": "2025-03",
+      "revenue": 605000,
+      "expenses": 248000,
+      "noi": 357000,
+      "budget_variance": 32000
+    },
+    {
+      "property_id": 109,
+      "month": "2025-01",
+      "revenue": 425000,
+      "expenses": 180000,
+      "noi": 245000,
+      "budget_variance": 10000
+    },
+    {
+      "property_id": 109,
+      "month": "2025-02",
+      "revenue": 420000,
+      "expenses": 185000,
+      "noi": 235000,
+      "budget_variance": 0
+    },
+    {
+      "property_id": 109,
+      "month": "2025-03",
+      "revenue": 430000,
+      "expenses": 182000,
+      "noi": 248000,
+      "budget_variance": 13000
+    }
+  ],
+  "occupancy_data": [
+    {
+      "property_id": 101,
+      "snapshot_date": "2025-01-01",
+      "total_units": 45,
+      "occupied_units": 42,
+      "occupancy_rate": 0.933
+    },
+    {
+      "property_id": 101,
+      "snapshot_date": "2025-02-01",
+      "total_units": 45,
+      "occupied_units": 43,
+      "occupancy_rate": 0.956
+    },
+    {
+      "property_id": 101,
+      "snapshot_date": "2025-03-01",
+      "total_units": 45,
+      "occupied_units": 43,
+      "occupancy_rate": 0.956
+    },
+    {
+      "property_id": 105,
+      "snapshot_date": "2025-01-01",
+      "total_units": 120,
+      "occupied_units": 114,
+      "occupancy_rate": 0.950
+    },
+    {
+      "property_id": 105,
+      "snapshot_date": "2025-02-01",
+      "total_units": 120,
+      "occupied_units": 117,
+      "occupancy_rate": 0.975
+    },
+    {
+      "property_id": 105,
+      "snapshot_date": "2025-03-01",
+      "total_units": 120,
+      "occupied_units": 118,
+      "occupancy_rate": 0.983
+    },
+    {
+      "property_id": 109,
+      "snapshot_date": "2025-01-01",
+      "total_units": 85,
+      "occupied_units": 79,
+      "occupancy_rate": 0.929
+    },
+    {
+      "property_id": 109,
+      "snapshot_date": "2025-02-01",
+      "total_units": 85,
+      "occupied_units": 81,
+      "occupancy_rate": 0.953
+    },
+    {
+      "property_id": 109,
+      "snapshot_date": "2025-03-01",
+      "total_units": 85,
+      "occupied_units": 82,
+      "occupancy_rate": 0.965
+    }
+  ],
+  "documents": [
+    {
+      "doc_id": "doc_001",
+      "property_id": 101,
+      "doc_type": "lease_summary",
+      "title": "Lease Agreement Summary - Unit 101",
+      "content": "Lease agreement for Unit 101 covering period 2023-01-15 to 2025-01-14. Tenant: John Smith. Monthly rent: $1,800. Renewal option available until 2025-02-14."
+    },
+    {
+      "doc_id": "doc_002",
+      "property_id": 105,
+      "doc_type": "inspection_report",
+      "title": "Property Inspection Report - Harbor Bay Apartments",
+      "content": "Comprehensive property inspection dated 2025-02-15. Roof condition: Good. HVAC systems: Well-maintained. Plumbing: No issues detected. Overall rating: Excellent. Recommended maintenance: routine filter changes and thermostat upgrade."
+    },
+    {
+      "doc_id": "doc_003",
+      "property_id": 109,
+      "doc_type": "lease_summary",
+      "title": "Lease Agreement Summary - Unit 301",
+      "content": "Lease agreement for Unit 301 covering period 2024-07-01 to 2025-06-30. Tenant: Lisa Garcia. Monthly rent: $2,400. Renewal option available until 2025-07-31."
+    },
+    {
+      "doc_id": "doc_004",
+      "property_id": 101,
+      "doc_type": "inspection_report",
+      "title": "Preventive Maintenance Report - Sunset Apartments",
+      "content": "Maintenance inspection report for Sunset Apartments dated 2025-03-01. Key findings: HVAC filters changed quarterly, plumbing system functional, electrical upgrades recommended for Units 203-207. Estimated cost: $2,500."
+    },
+    {
+      "doc_id": "doc_005",
+      "property_id": 105,
+      "doc_type": "lease_summary",
+      "title": "Lease Agreement Summary - Unit 501",
+      "content": "Lease agreement for Unit 501 covering period 2024-03-01 to 2025-02-28. Tenant: Emma Williams. Monthly rent: $2,500. Renewal option available until 2025-03-31."
+    }
+  ]
+}
