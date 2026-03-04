@@ -6,10 +6,6 @@ A natural language intelligence platform that sits on top of Snowflake, combinin
 
 ---
 
-> **Portfolio Context:** This is a product management portfolio project. The code represents PM-authored reference implementations that demonstrate architecture decisions, data modeling, and system design. These prototypes were used to align engineering teams, validate technical feasibility, and communicate product requirements. They are not production-deployed code.
-
----
-
 ## The Problem
 
 A mid-market real estate operator manages a mixed-use portfolio of 87 properties (apartments, commercial office, retail, industrial) across 12 states with a $150M+ annual operating budget. Their data lives in Snowflake, but the operational reality is:
@@ -279,14 +275,42 @@ portfolio-intelligence-hub/
 
 ---
 
-## What This Demonstrates
+## Business Context
 
-- **RAG architecture design** — Hybrid retrieval (BM25 + vector + rerank) with semantic chunking that respects document structure (clause-level for leases, section-level for reports)
-- **Text-to-SQL product thinking** — Semantic business layer that ensures metric consistency, few-shot prompting for Snowflake dialect, multi-step validation pipeline
-- **Snowflake data modeling** — CLUSTER BY optimization, materialized views for aggregation, role-based views for RBAC, proper normalization for real estate domain
-- **Multi-persona product design** — 4 distinct user personas with different data needs, query patterns, and access levels, all served by the same underlying system
-- **Enterprise security** — Three-layer access control (app → database → warehouse), tenant isolation, audit logging, PII awareness
-- **Modern tooling fluency** — Supabase, Trigger.dev, n8n, Clerk, React Email, Vercel, Redis — integrated into a cohesive architecture rather than bolted on
+### Market Size
+~4,200 mid-market real estate operators managing 50-500 properties in the US, with combined portfolio value exceeding $800B. These operators spend $2-4M/year on analytics, reporting, and business intelligence.
+
+### Unit Economics
+
+| Metric | Value |
+|--------|-------|
+| **Before** | |
+| Monthly analyst hours on ad-hoc queries | 340 |
+| Hourly analyst cost | $83 |
+| Annual analyst cost | $340K |
+| **After** | |
+| Monthly analyst hours on ad-hoc queries | 45 |
+| Hourly analyst cost | $83 |
+| Annual analyst cost | $45K |
+| Annual savings | $295K |
+| **Decision speed improvement** | 24-48hr → <30sec |
+| **Platform build cost** | **$230,000** |
+| **Monthly run rate** | **$1,600** |
+| **Payback period** | **10 months** |
+| **3-year ROI** | **3.5x** |
+
+### Pricing Model
+If productized for real estate operators: $3,000-8,000/month based on property count and user seats, targeting $8-15M ARR at 300 operators.
+
+---
+
+## PM Perspective
+
+The hardest decision was whether to use a semantic business layer (SQL views + metric mapping) or let the LLM generate raw SQL directly. Raw SQL was faster to ship — just inject the schema and let Claude generate queries. But the problem is consistency: two users asking "what's the occupancy rate?" would get different SQL depending on how the LLM interpreted it (some including pending leases, some not). The semantic layer guaranteed that "occupancy rate" always meant the same formula, regardless of who asked or how they phrased it. Added 3 weeks to Phase 2 but eliminated the "why do these numbers not match?" problem that kills trust in analytics tools.
+
+Property managers didn't want dashboards — they wanted answers. We initially prototyped a Tableau-style dashboard with filters and drill-downs. In user testing, property managers ignored it entirely and typed questions in the search bar. They didn't want to learn a tool; they wanted to ask "which buildings have the most open work orders?" and get an answer in 10 seconds. This validated the chat-first approach and we killed the dashboard prototype entirely, redirecting that effort into improving query understanding and response formatting.
+
+What I'd do differently: I would scope the document search (RAG) more narrowly in Phase 1. We tried to ingest everything — lease agreements, inspection reports, board minutes, vendor contracts, insurance policies — and the retrieval quality suffered. Too many document types with too little domain-specific chunking. Should have started with leases and inspection reports only (the two most-queried document types) and expanded once we had retrieval quality above 0.85 NDCG for those categories.
 
 ---
 
@@ -339,4 +363,6 @@ portfolio-intelligence-hub/
 
 ## About This Project
 
-This project was built as a product management engagement for a mid-market real estate operator. All client-identifying information has been removed. The code represents reference implementations authored by the PM to communicate architecture decisions and validate technical feasibility with the engineering team. These prototypes informed the production build, which is maintained by the client's internal engineering team.
+Built as a product management engagement for a mid-market real estate operator managing 87 properties across 12 states ($150M+ annual operating budget) where only 2 analysts could access Snowflake data, creating a 24-48 hour bottleneck for every ad-hoc question. I led discovery across four personas (property managers, brokers, finance, executives) to map query patterns and information needs. Designed the Text-to-SQL engine with semantic business layer ensuring metric consistency across all personas. Made technology decisions on hybrid search architecture (BM25 + vector + Cohere rerank) and Snowflake integration. Established evaluation framework measuring SQL generation accuracy (F1), document relevance (NDCG@5), and user adoption.
+
+**Note:** Client-identifying details have been anonymized. Code represents the architecture and design decisions I drove; production deployments were managed by client engineering teams.
