@@ -307,6 +307,36 @@ portfolio-intelligence-hub/
 
 ---
 
+## Engagement & Budget
+
+### Team & Timeline
+
+| Role | Allocation | Duration |
+|------|-----------|----------|
+| Lead PM (Jacob) | 20 hrs/week | 16 weeks |
+| Lead Developer (US) | 40 hrs/week | 16 weeks |
+| Offshore Developer(s) | 2 × 35 hrs/week | 16 weeks |
+| QA Engineer | 20 hrs/week | 16 weeks |
+
+**Timeline:** 16 weeks total across 3 phases
+- **Phase 1: Discovery & Design** (3 weeks) — Snowflake schema mapping, query pattern analysis, semantic business layer design, persona-based access control, document corpus inventory
+- **Phase 2: Core Build** (9 weeks) — Text-to-SQL engine (few-shot + schema injection), RAG pipeline (hybrid BM25 + vector + Cohere rerank), property scorecard, multi-persona dashboards
+- **Phase 3: Integration & Launch** (4 weeks) — Snowflake production connection, document ingestion pipeline, evaluation suite (F1 + NDCG), user pilot (property managers → finance → executives), query refinement based on production usage
+
+### Budget Summary
+
+| Category | Cost | Notes |
+|----------|------|-------|
+| PM & Strategy | $59,200 | Discovery, specs, stakeholder management |
+| Development (Lead + Offshore) | $159,360 | Core platform build |
+| QA Engineer | $11,200 | Testing and quality assurance |
+| AI/LLM Token Budget | $9,280/total | Claude Sonnet ($320/mo), Voyage embeddings ($40/mo), Cohere Rerank ($120/mo), Haiku summarization ($100/mo) × 16 weeks |
+| Infrastructure | $13,120/total | Supabase Pro ($25/mo), Snowflake ($400/mo incremental), Vercel ($20/mo), Redis ($65/mo), AWS compute ($150/mo), n8n ($50/mo), Trigger.dev ($25/mo), misc ($85/mo) × 16 weeks |
+| **Total Engagement** | **$230,000** | Fixed-price, phases billed at milestones |
+| **Ongoing Run Rate** | **$1,600/month** | Infrastructure + AI tokens + support |
+
+---
+
 ## About This Project
 
 This project was built as a product management engagement for a mid-market real estate operator. All client-identifying information has been removed. The code represents reference implementations authored by the PM to communicate architecture decisions and validate technical feasibility with the engineering team. These prototypes informed the production build, which is maintained by the client's internal engineering team.
