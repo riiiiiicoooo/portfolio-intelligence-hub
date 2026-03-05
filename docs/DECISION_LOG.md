@@ -693,5 +693,49 @@ Vector retrieval returns top-50 candidates. Need to rerank to top-5 for user dis
 ---
 
 **Document Status:** Active decision tracking  
-**Review Cadence:** Add new decisions as they arise, review existing decisions quarterly  
+**Review Cadence:** Add new decisions as they arise, review existing decisions quarterly
 **Next Review Date:** 2026-06-04
+
+---
+
+## Decision 11: Constrained SQL Generation with Schema Validation Over Fine-Tuned Text-to-SQL Model
+
+**Date:** 2026-02-28
+**Status:** DECIDED
+**Owner:** ML Lead
+**Impact:** CRITICAL
+
+### Context
+Original approach used a fine-tuned text-to-SQL model trained on the client's schema and 200+ example queries. The model generated SQL directly from natural language questions.
+
+### What Happened
+The fine-tuned model hallucinated JOINs. Specifically: it generated plausible-looking JOIN conditions between tables that had no foreign key relationship. Example: a query about "vacancy rates by property manager" joined the `properties` table to `managers` through a `manager_id` column that didn't exist — the actual relationship went through `assignments`. The hallucinated queries returned results (empty or partial), making them harder to catch than outright errors. In testing with 45 queries, 7 (15.5%) returned incorrect results due to hallucinated schema relationships.
+
+### Decision
+Switched to constrained SQL generation. The LLM generates SQL but is constrained by: (1) a validated schema graph (only real table relationships are available), (2) column type checking (can't compare varchar to integer), (3) a query plan validator that checks JOIN paths against the actual foreign key graph. Invalid SQL is rejected and regenerated with error context.
+
+### Rationale
+Constrained generation reduced hallucinated JOINs from 15.5% to 0.8% (1 edge case in 120 test queries). Added ~400ms to query generation but eliminated the trust problem — users were losing confidence when queries returned "wrong but plausible" results.
+
+### Consequences
+
+**Short-term:**
+- Required building a schema graph extractor (1 week) and query validator (1 week)
+- Fine-tuned model was abandoned (sunk cost: 3 weeks of training data preparation and model tuning)
+- But the constrained approach is more maintainable — schema changes are automatically reflected, no retraining needed
+
+**Long-term:**
+- Validator adds ~400ms latency per query (acceptable within 5s budget)
+- Query regeneration logic needed if validation fails (rare: <0.5% of queries)
+- Schema graph stays in sync automatically (extracts from Snowflake metadata)
+
+**Risks & Mitigations:**
+- Risk: Validator is too strict, rejects valid queries
+  - Mitigation: Monitor rejection rate; loosen constraints iteratively
+- Risk: Schema graph extraction fails during migration
+  - Mitigation: Manual schema graph as fallback, automated extraction as primary
+
+### Follow-up
+- **Measurement:** Track hallucinated JOINs weekly (target <1% vs. 15.5% baseline)
+- **Review Date:** 2026-05-15 (evaluate if constraint strictness worth latency cost)
+- **Contingency:** Fine-tuned model fallback for low-confidence queries (if constraints too restrictive)
