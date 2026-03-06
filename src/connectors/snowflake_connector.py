@@ -14,7 +14,7 @@ and query execution with proper tenant isolation and audit logging.
 import logging
 import os
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Sequence, Union
 import time
 from contextlib import contextmanager
 
@@ -125,27 +125,28 @@ class SnowflakeConnection:
     def execute_query(
         self,
         sql: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[Union[Dict[str, Any], Sequence]] = None,
         timeout_seconds: int = 30
     ) -> List[Dict[str, Any]]:
         """Execute SQL query with timeout.
-        
+
         Args:
-            sql: SQL query string
-            params: Query parameters (for parameterized queries)
+            sql: SQL query string (use %s for positional or :name for named placeholders)
+            params: Query parameters -- a tuple/list for positional %s placeholders
+                    or a dict for named :name placeholders
             timeout_seconds: Query timeout (default 30s)
-        
+
         Returns:
             List of result rows as dictionaries
-        
+
         Raises:
             ProgrammingError: If SQL is invalid
             Exception: If query times out
-        
+
         Example:
             >>> results = conn.execute_query(
-            ...     "SELECT * FROM properties WHERE property_id = ?",
-            ...     params={'property_id': 'PROP_001'}
+            ...     "SELECT * FROM properties WHERE property_id = %s",
+            ...     params=('PROP_001',)
             ... )
         """
         if not self.connection:
@@ -181,25 +182,30 @@ class SnowflakeConnection:
         sql: str,
         tenant_id: str,
         role: str,
-        properties: Optional[List[str]] = None
+        properties: Optional[List[str]] = None,
+        params: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """Execute query with automatic tenant and property filtering.
-        
+
+        Uses parameterized queries to prevent SQL injection. Tenant and
+        property filters are appended as bind-variable placeholders.
+
         Args:
-            sql: SQL query (should have WHERE clause already)
+            sql: SQL query (may or may not have a WHERE clause already)
             tenant_id: Tenant ID to filter by
             role: User role (for audit logging)
             properties: List of property IDs to filter by (empty = all)
-        
+            params: Additional query parameters from the caller (optional)
+
         Returns:
             List of result rows
-        
+
         Process:
-            1. Add tenant_id filter to WHERE clause
-            2. Add property list filter if provided
+            1. Add tenant_id filter to WHERE clause via parameterized placeholder
+            2. Add property list filter if provided via parameterized placeholders
             3. Execute with tenant context
             4. Log for audit trail
-        
+
         Example:
             >>> results = conn.execute_with_tenant_filter(
             ...     "SELECT * FROM properties WHERE status = 'active'",
@@ -208,24 +214,29 @@ class SnowflakeConnection:
             ...     properties=["PROP_001", "PROP_002"]
             ... )
         """
-        # Inject tenant filter
+        # Collect all bind parameters in order
+        bind_params: list = []
+
+        # Inject tenant filter using parameterized placeholder
         if "WHERE" in sql.upper():
-            sql = sql.replace("WHERE", f"WHERE tenant_id = '{tenant_id}' AND")
+            sql = sql.replace("WHERE", "WHERE tenant_id = %s AND", 1)
         else:
-            sql = f"{sql} WHERE tenant_id = '{tenant_id}'"
-        
-        # Inject property filter if applicable
+            sql = f"{sql} WHERE tenant_id = %s"
+        bind_params.append(tenant_id)
+
+        # Inject property filter if applicable using parameterized placeholders
         if properties:
-            props_str = "', '".join(properties)
-            sql = f"{sql} AND property_id IN ('{props_str}')"
-        
-        # Log for audit trail
-        logger.info(f"Query by {role} in {tenant_id}: {sql[:100]}...")
-        
-        return self.execute_query(sql)
+            placeholders = ", ".join(["%s"] * len(properties))
+            sql = f"{sql} AND property_id IN ({placeholders})"
+            bind_params.extend(properties)
+
+        # Log for audit trail (don't log param values for security)
+        logger.info(f"Query by {role} in tenant (parameterized): {sql[:100]}...")
+
+        return self.execute_query(sql, params=tuple(bind_params))
 
 
-def execute_query(sql: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+def execute_query(sql: str, params: Optional[Union[Dict[str, Any], Sequence]] = None) -> List[Dict[str, Any]]:
     """Execute query using default Snowflake connection.
     
     Convenience function for one-off queries.

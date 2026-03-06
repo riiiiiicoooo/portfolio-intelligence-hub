@@ -5,6 +5,22 @@ A RAG platform for real estate operators providing:
 - Natural language to SQL query execution on Snowflake
 - Semantic search over property documents
 - Report generation and export
+
+Production Notes (not implemented in this demo):
+- Snowflake OAuth: Replace static credentials with Snowflake OAuth or
+  key-pair authentication. Rotate keys via AWS Secrets Manager on a 90-day
+  schedule. Never embed Snowflake passwords in environment variables.
+- Tenant Isolation: The text-to-SQL engine injects TENANT_ID via WHERE clause,
+  but production should also enforce Snowflake row-access policies (RAP) as a
+  defense-in-depth layer — so even a SQL injection bypass can't cross tenants.
+- Query Result Caching: Redis caches should use tenant-scoped keys
+  (tenant:{id}:query:{hash}) with a max TTL of 15 minutes. Invalidate on
+  data refresh. Never cache across tenant boundaries.
+- Document Storage: Property documents in the RAG pipeline should be encrypted
+  at rest in S3 (SSE-KMS) with per-tenant KMS keys for cryptographic isolation.
+- SQL Generation Guardrails: The LLM-generated SQL is validated by sqlglot AST
+  parsing (see text_to_sql.py), but production should add a query cost estimator
+  to reject queries that would scan >1M rows or exceed a cost threshold.
 """
 
 import json

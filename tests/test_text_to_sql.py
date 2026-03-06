@@ -437,6 +437,65 @@ class TestValidateSQL:
         assert result == expected
 
 
+class TestSQLInjectionBypass:
+    """Tests for SQL injection bypass attempts that regex-only validation would miss.
+
+    These attacks exploit weaknesses in pattern-matching approaches:
+    - SQL comments to hide destructive statements
+    - Multi-statement injection
+    - Subquery-based unauthorized table access
+    - Backtick and quoted identifier tricks
+    """
+
+    def test_multi_statement_injection(self, text_to_sql_service):
+        """Multi-statement attack: valid SELECT followed by DROP."""
+        sql = "SELECT * FROM properties; DROP TABLE properties"
+        result = text_to_sql_service.validate_sql(sql)
+        assert result is False
+
+    def test_comment_hidden_drop(self, text_to_sql_service):
+        """DROP hidden after a comment to bypass regex line matching."""
+        sql = "SELECT * FROM properties -- safe query\n; DROP TABLE properties"
+        result = text_to_sql_service.validate_sql(sql)
+        assert result is False
+
+    def test_inline_comment_obfuscation(self, text_to_sql_service):
+        """Obfuscate dangerous keywords with inline comments."""
+        sql = "SELECT * FROM properties; DR/**/OP TABLE units"
+        result = text_to_sql_service.validate_sql(sql)
+        assert result is False
+
+    def test_unapproved_table_in_subquery(self, text_to_sql_service):
+        """Access system tables via subquery."""
+        sql = "SELECT * FROM properties WHERE id IN (SELECT id FROM pg_catalog.pg_tables)"
+        result = text_to_sql_service.validate_sql(sql)
+        assert result is False
+
+    def test_union_based_data_exfiltration(self, text_to_sql_service):
+        """UNION attack to read from unapproved tables."""
+        sql = "SELECT name FROM properties UNION SELECT password FROM users"
+        result = text_to_sql_service.validate_sql(sql)
+        assert result is False
+
+    def test_insert_via_select(self, text_to_sql_service):
+        """INSERT disguised within the query."""
+        sql = "INSERT INTO properties SELECT * FROM units"
+        result = text_to_sql_service.validate_sql(sql)
+        assert result is False
+
+    def test_update_statement_rejected(self, text_to_sql_service):
+        """UPDATE statements must be rejected."""
+        sql = "UPDATE properties SET name = 'hacked' WHERE 1=1"
+        result = text_to_sql_service.validate_sql(sql)
+        assert result is False
+
+    def test_cte_with_unapproved_table(self, text_to_sql_service):
+        """CTE (WITH clause) referencing unapproved table."""
+        sql = "WITH stolen AS (SELECT * FROM admin_users) SELECT * FROM properties, stolen"
+        result = text_to_sql_service.validate_sql(sql)
+        assert result is False
+
+
 # Result Formatting Tests
 class TestFormatResults:
     """Tests for formatting query results."""

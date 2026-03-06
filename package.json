@@ -8,7 +8,9 @@
     "deploy": "trigger deploy",
     "build": "tsc",
     "lint": "eslint trigger-jobs/",
-    "format": "prettier --write trigger-jobs/"
+    "format": "prettier --write trigger-jobs/",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "keywords": [
     "portfolio",
@@ -20,6 +22,8 @@
   "author": "Portfolio Intelligence Hub",
   "license": "Proprietary",
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.48.0",
     "@types/node": "^20.10.6",
     "@trigger.dev/sdk": "^3.0.0",
     "@typescript-eslint/eslint-plugin": "^6.16.0",

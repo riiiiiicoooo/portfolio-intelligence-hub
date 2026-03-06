@@ -225,28 +225,33 @@ def get_column_mask(role: Role, table: str) -> List[str]:
     return []
 
 
-def build_tenant_filter(user_context: 'UserContext') -> str:
-    """Build SQL WHERE clause for tenant isolation.
-    
+def build_tenant_filter(user_context: 'UserContext') -> Tuple[str, tuple]:
+    """Build parameterized SQL WHERE clause for tenant isolation.
+
     Args:
         user_context: UserContext with tenant and property info
-    
+
     Returns:
-        SQL WHERE clause fragment (without leading WHERE)
-    
+        A tuple of (sql_fragment, params) where sql_fragment is a WHERE clause
+        fragment using %%s placeholders and params is the corresponding values.
+
     Example:
         >>> ctx = UserContext("user1", "tenant1", "pm", ["p1", "p2"])
-        >>> filter_sql = build_tenant_filter(ctx)
+        >>> filter_sql, params = build_tenant_filter(ctx)
         >>> print(filter_sql)
-        # tenant_id = 'tenant1' AND property_id IN ('p1', 'p2')
+        # tenant_id = %s AND property_id IN (%s, %s)
+        >>> print(params)
+        # ('tenant1', 'p1', 'p2')
     """
-    filters = [f"tenant_id = '{user_context.tenant_id}'"]
-    
+    filters = ["tenant_id = %s"]
+    params: list = [user_context.tenant_id]
+
     if user_context.assigned_properties:
-        props = "', '".join(user_context.assigned_properties)
-        filters.append(f"property_id IN ('{props}')")
-    
-    return " AND ".join(filters)
+        placeholders = ", ".join(["%s"] * len(user_context.assigned_properties))
+        filters.append(f"property_id IN ({placeholders})")
+        params.extend(user_context.assigned_properties)
+
+    return " AND ".join(filters), tuple(params)
 
 
 def filter_columns(

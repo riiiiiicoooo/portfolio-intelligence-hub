@@ -131,20 +131,14 @@ def verify_clerk_token(token: str) -> UserContext:
         token = token[7:]
     
     try:
-        # Decode without verification first to get unverified claims
-        # In production, implement proper key selection from JWKS
-        unverified = jwt.decode(token, options={"verify_signature": False})
-        
-        # Verify token signature (in production)
-        # public_key = get_clerk_public_key()
-        # payload = jwt.decode(
-        #     token,
-        #     public_key,
-        #     algorithms=["RS256"],
-        #     audience=settings.CLERK_API_ID,
-        # )
-        
-        payload = unverified
+        # Fetch Clerk public key and verify token signature
+        public_key = get_clerk_public_key()
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=["RS256"],
+            audience=settings.CLERK_API_ID,
+        )
         
         # Extract user information from JWT claims
         user_id: str = payload.get("sub")

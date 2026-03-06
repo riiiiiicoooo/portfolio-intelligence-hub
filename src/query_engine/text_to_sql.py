@@ -28,6 +28,8 @@ from enum import Enum
 
 import anthropic
 import snowflake.connector
+import sqlglot
+from sqlglot import exp
 from snowflake.connector import DictCursor
 
 from .semantic_layer import get_metric, get_approved_tables, get_table_schema, resolve_business_term
@@ -341,53 +343,74 @@ Generate SQL for the user query."""
 
 
 def validate_sql(sql: str) -> Tuple[bool, str]:
-    """Validate SQL for safety and correctness.
-    
+    """Validate SQL for safety and correctness using AST parsing.
+
+    Uses sqlglot to parse SQL into an AST for robust validation that cannot
+    be bypassed with comments, backticks, or string obfuscation.
+
     Args:
         sql: SQL query string to validate
-    
+
     Returns:
         Tuple of (is_valid: bool, message: str)
-    
+
     Checks:
-        1. No dangerous patterns (DROP, DELETE, ALTER, etc.)
-        2. Only uses approved tables
-        3. Valid SQL syntax (basic parsing)
-        4. Reasonable query complexity (not too many joins)
-    
+        1. No dangerous patterns (fast regex pre-check, defense in depth)
+        2. SQL parses as valid syntax
+        3. Only single SELECT statements allowed (no multi-statement attacks)
+        4. Only approved tables referenced (AST-based extraction)
+        5. TENANT_ID filter present
+
     Example:
         >>> is_valid, msg = validate_sql("SELECT * FROM properties WHERE tenant_id = '1'")
         >>> if not is_valid:
         ...     print(f"Validation failed: {msg}")
     """
     sql_upper = sql.upper()
-    
-    # Check for dangerous patterns
+
+    # Fast regex pre-check (defense in depth — catches obvious attacks before parsing)
     for pattern in DANGEROUS_PATTERNS:
         if re.search(pattern, sql_upper):
             return False, f"Dangerous SQL pattern detected: {pattern}"
-    
-    # Check approved tables
-    for table in APPROVED_TABLES:
-        if table.upper() in sql_upper:
-            # Table is used, which is OK
-            pass
-    
-    # Check for unapproved tables
-    all_words = re.findall(r'\bFROM\s+(\w+)|JOIN\s+(\w+)', sql_upper)
-    for match in all_words:
-        table = (match[0] or match[1]).lower()
-        if table not in APPROVED_TABLES and table not in ['ON', 'WHERE', 'GROUP', 'ORDER', 'LIMIT']:
-            return False, f"Unapproved table: {table}"
-    
+
+    # Parse SQL into AST
+    try:
+        statements = sqlglot.parse(sql, dialect="snowflake")
+    except sqlglot.errors.ParseError as e:
+        return False, f"SQL parse error: {e}"
+
+    # Reject multi-statement SQL (e.g., "SELECT 1; DROP TABLE x")
+    if len(statements) != 1:
+        return False, "Only single SELECT statements are allowed"
+
+    statement = statements[0]
+
+    # Reject anything that isn't a SELECT
+    if not isinstance(statement, exp.Select):
+        return False, f"Only SELECT statements are allowed, got: {type(statement).__name__}"
+
+    # Extract all table references from the AST
+    referenced_tables = set()
+    for table in statement.find_all(exp.Table):
+        table_name = table.name.lower()
+        referenced_tables.add(table_name)
+
+    # Validate all tables are in the approved list
+    for table_name in referenced_tables:
+        if table_name not in APPROVED_TABLES:
+            return False, f"Unapproved table: {table_name}"
+
+    # Reject subqueries that could reference unapproved tables
+    subqueries = list(statement.find_all(exp.Subquery))
+    for subquery in subqueries:
+        for table in subquery.find_all(exp.Table):
+            if table.name.lower() not in APPROVED_TABLES:
+                return False, f"Unapproved table in subquery: {table.name}"
+
     # Check tenant_id filter is present
     if "TENANT_ID" not in sql_upper:
         return False, "Query must include tenant_id filter"
-    
-    # Basic syntax check (has SELECT and FROM)
-    if not re.search(r'\bSELECT\b.*\bFROM\b', sql_upper):
-        return False, "Invalid SQL: missing SELECT or FROM"
-    
+
     return True, "SQL validation passed"
 
 
