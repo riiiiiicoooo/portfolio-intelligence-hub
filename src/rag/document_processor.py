@@ -26,6 +26,9 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 from datetime import datetime
 import hashlib
+import re
+
+from docling.document_converter import DocumentConverter
 
 logger = logging.getLogger(__name__)
 
@@ -110,26 +113,26 @@ class ProcessedDocument:
 
 def extract_text_pdf(file_path: str) -> List[PageContent]:
     """Extract text from PDF using Docling (simple, robust extraction).
-    
+
     Args:
         file_path: Path to PDF file
-    
+
     Returns:
         List of PageContent, one per page
-    
+
     Raises:
         FileNotFoundError: If file doesn't exist
         ValueError: If file is not a valid PDF
-    
+
     Note:
         This is a reference implementation using Docling.
         Docling is simpler than pdfplumber and handles both standard and scanned PDFs.
-        
+
         In production, would also extract:
         - Table structure
         - Form fields
         - Handwritten annotations
-    
+
     Example:
         >>> pages = extract_text_pdf("/documents/lease_001.pdf")
         >>> for page in pages:
@@ -137,65 +140,129 @@ def extract_text_pdf(file_path: str) -> List[PageContent]:
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"PDF file not found: {file_path}")
-    
+
     try:
-        # In production: from docling.document_converter import DocumentConverter
-        # This is a reference implementation
         logger.info(f"Extracting text from PDF: {file_path}")
-        
+
+        # Use Docling for PDF extraction
+        converter = DocumentConverter()
+        document = converter.convert(file_path)
+
         pages = []
-        # Simulated extraction - production would use Docling
-        pages.append(PageContent(
-            page_number=1,
-            text="Sample lease document text extracted from PDF...",
-            has_images=False,
-            has_tables=False,
-            confidence=1.0
-        ))
-        
+        current_page = 1
+        current_text = ""
+
+        # Iterate through document content blocks
+        for item in document.document.children:
+            # Extract text from each block
+            block_text = item.export_to_markdown() if hasattr(item, 'export_to_markdown') else str(item)
+
+            # Track if this block has tables or images
+            has_tables = hasattr(item, 'children') and any('table' in str(child).lower() for child in getattr(item, 'children', []))
+            has_images = hasattr(item, 'children') and any('image' in str(child).lower() for child in getattr(item, 'children', []))
+
+            current_text += block_text + "\n"
+
+            # Create page breaks every ~3000 chars (approximate page size)
+            if len(current_text) > 3000:
+                pages.append(PageContent(
+                    page_number=current_page,
+                    text=current_text.strip(),
+                    has_images=has_images,
+                    has_tables=has_tables,
+                    confidence=1.0
+                ))
+                current_page += 1
+                current_text = ""
+
+        # Add remaining content as final page
+        if current_text.strip():
+            pages.append(PageContent(
+                page_number=current_page,
+                text=current_text.strip(),
+                has_images=False,
+                has_tables=False,
+                confidence=1.0
+            ))
+
         logger.info(f"Extracted {len(pages)} pages from PDF")
         return pages
-    
+
     except Exception as e:
-        logger.error(f"PDF extraction failed: {e}")
-        raise ValueError(f"Failed to extract PDF: {e}")
+        logger.error(f"PDF extraction failed with Docling: {e}")
+        # Fallback to OCR if Docling fails
+        logger.info("Attempting OCR fallback...")
+        return extract_text_ocr(file_path)
 
 
 def extract_text_ocr(file_path: str) -> List[PageContent]:
     """Extract text from scanned PDF using Azure Document Intelligence.
-    
+
     Args:
         file_path: Path to PDF file
-    
+
     Returns:
         List of PageContent with OCR confidence scores
-    
+
     Raises:
         Exception: If Azure service fails
-    
+
     Note:
         Fallback when Docling cannot extract text (scanned documents).
-        
+
         Requires environment variables:
         - AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
         - AZURE_DOCUMENT_INTELLIGENCE_KEY
     """
     try:
-        # In production: from azure.ai.documentintelligence import DocumentIntelligenceClient
         logger.info(f"Running OCR on scanned PDF: {file_path}")
-        
-        # Simulated OCR - production would call Azure
+
+        from azure.ai.documentintelligence import DocumentIntelligenceClient
+        from azure.core.credentials import AzureKeyCredential
+
+        endpoint = os.environ.get("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
+        api_key = os.environ.get("AZURE_DOCUMENT_INTELLIGENCE_KEY")
+
+        if not endpoint or not api_key:
+            raise ValueError("Azure Document Intelligence credentials not configured")
+
+        client = DocumentIntelligenceClient(endpoint=endpoint, credential=AzureKeyCredential(api_key))
+
+        with open(file_path, "rb") as f:
+            poller = client.begin_analyze_document("prebuilt-read", document=f)
+
+        result = poller.result()
+
         pages = []
-        pages.append(PageContent(
-            page_number=1,
-            text="Extracted via OCR from scanned lease...",
-            has_images=True,
-            confidence=0.87
-        ))
-        
-        logger.info(f"OCR extracted {len(pages)} pages with avg confidence 0.87")
+        avg_confidence = 0.0
+
+        for page_num, page in enumerate(result.pages, 1):
+            page_text = ""
+
+            # Extract text lines from page
+            if hasattr(page, 'lines') and page.lines:
+                for line in page.lines:
+                    page_text += line.content + "\n"
+                    if hasattr(line, 'confidence'):
+                        avg_confidence += line.confidence
+
+            # Extract text from tables if present
+            has_tables = hasattr(result, 'tables') and any(t.bounding_regions and any(r.page_number == page_num for r in t.bounding_regions) for t in result.tables) if hasattr(result, 'tables') else False
+
+            pages.append(PageContent(
+                page_number=page_num,
+                text=page_text.strip() if page_text.strip() else "Page " + str(page_num) + " - OCR extraction",
+                has_images=hasattr(page, 'images') and len(page.images) > 0 if hasattr(page, 'images') else False,
+                has_tables=has_tables,
+                confidence=avg_confidence / max(len(result.pages), 1)
+            ))
+
+        logger.info(f"OCR extracted {len(pages)} pages with avg confidence {avg_confidence / max(len(result.pages), 1):.2f}")
         return pages
-    
+
+    except ImportError:
+        logger.warning("Azure SDK not installed, using fallback OCR")
+        raise ValueError("Azure Document Intelligence SDK required for OCR fallback. Install: pip install azure-ai-documentintelligence")
     except Exception as e:
         logger.error(f"OCR extraction failed: {e}")
         raise
@@ -512,6 +579,3 @@ def store_chunks(chunks: List[DocumentChunk], doc_id: str) -> None:
     logger.debug(f"Storing {len(chunks)} chunks for doc {doc_id} (reference implementation)")
     # In production: INSERT chunks into Supabase
     pass
-
-
-import re

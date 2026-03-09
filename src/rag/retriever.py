@@ -19,10 +19,14 @@ import logging
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
 import os
+import time
 
 import cohere
+import psycopg
+from psycopg import sql
 
 from ..access_control.rbac import UserContext
+from ..core.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -68,21 +72,21 @@ class SearchResult:
 
 def bm25_search(query: str, tenant_id: str, top_k: int = 20) -> List[SearchResult]:
     """Full-text search using BM25 algorithm on PostgreSQL.
-    
+
     Args:
         query: Natural language query
         tenant_id: Tenant ID for filtering
         top_k: Number of results to return
-    
+
     Returns:
         List of SearchResult sorted by BM25 relevance score
-    
+
     Process:
         1. Tokenize query
         2. Search PostgreSQL tsvector index on document_chunks table
         3. Filter by tenant_id
         4. Return top_k by relevance
-    
+
     Note:
         In reference implementation, this is a skeleton.
         Production would:
@@ -94,53 +98,89 @@ def bm25_search(query: str, tenant_id: str, top_k: int = 20) -> List[SearchResul
         ORDER BY rank DESC
         LIMIT ?
         ```
-    
+
     Example:
         >>> results = bm25_search("maintenance requirements", "TENANT_001")
         >>> print(f"Found {len(results)} matches")
     """
     logger.debug(f"BM25 search for '{query}' in tenant {tenant_id}")
-    
-    # In production:
-    # conn = psycopg2.connect(...)
-    # cursor.execute(BM25_QUERY, (query, tenant_id, top_k))
-    # results = cursor.fetchall()
-    
+
     results = []
-    # Placeholder results
+    settings = Settings()
+
+    try:
+        with psycopg.connect(settings.DATABASE_URL) as conn:
+            with conn.cursor() as cursor:
+                # Full-text search using PostgreSQL FTS
+                cursor.execute(
+                    """
+                    SELECT
+                        chunk_id,
+                        doc_id,
+                        chunk_text,
+                        page_number,
+                        ts_rank(fts, plainto_tsquery('english', %s)) as rank
+                    FROM document_chunks
+                    WHERE fts @@ plainto_tsquery('english', %s)
+                      AND tenant_id = %s
+                    ORDER BY rank DESC
+                    LIMIT %s
+                    """,
+                    (query, query, tenant_id, top_k)
+                )
+
+                rows = cursor.fetchall()
+
+                for chunk_id, doc_id, chunk_text, page_number, rank in rows:
+                    result = SearchResult(
+                        chunk_id=chunk_id,
+                        doc_id=doc_id,
+                        doc_title=doc_id,  # In production, would join with documents table
+                        chunk_text=chunk_text[:500],  # Truncate for display
+                        relevance_score=float(rank) if rank else 0.0,
+                        page_number=page_number or 1,
+                        match_type="bm25",
+                        bm25_score=float(rank) if rank else 0.0
+                    )
+                    results.append(result)
+
+    except Exception as e:
+        logger.error(f"BM25 search failed: {e}")
+        return []
+
     logger.info(f"BM25 search returned {len(results)} results")
     return results
 
 
 def vector_search(query: str, tenant_id: str, top_k: int = 20) -> List[SearchResult]:
     """Semantic vector similarity search using pgvector on PostgreSQL.
-    
+
     Args:
         query: Natural language query
         tenant_id: Tenant ID for filtering
         top_k: Number of results to return
-    
+
     Returns:
         List of SearchResult sorted by vector similarity (cosine)
-    
+
     Process:
         1. Embed query using OpenAI embeddings
         2. Search pgvector index with cosine similarity
         3. Filter by tenant_id
         4. Return top_k by similarity
-    
+
     Example:
         >>> results = vector_search("What are repair obligations?", "TENANT_001", 10)
         >>> for r in results:
         ...     print(f"{r.doc_title}: {r.vector_score:.3f}")
-    
+
     Note:
         In production:
         ```
         WITH query_embedding AS (
           SELECT embedding_from_openai(?) as emb
         )
-        SELECT chunk_id, doc_id, chunk_text, 
+        SELECT chunk_id, doc_id, chunk_text,
                1 - (embedding <=> query_embedding.emb) as similarity
         FROM document_chunks, query_embedding
         WHERE tenant_id = ?
@@ -149,20 +189,56 @@ def vector_search(query: str, tenant_id: str, top_k: int = 20) -> List[SearchRes
         ```
     """
     logger.debug(f"Vector search for '{query}' in tenant {tenant_id}")
-    
+
+    results = []
+    settings = Settings()
+
     try:
-        # In production:
-        # from .embedder import embed_text
-        # query_embedding = embed_text(query).embedding
-        # conn.execute(VECTOR_QUERY, (query_embedding, tenant_id, top_k))
-        
-        results = []
-        logger.info(f"Vector search returned {len(results)} results")
-        return results
-    
+        # Import and use embedder to embed the query
+        from .embedder import embed_text
+        query_embedding = embed_text(query).embedding
+
+        with psycopg.connect(settings.DATABASE_URL) as conn:
+            with conn.cursor() as cursor:
+                # Vector similarity search using pgvector cosine operator (<=>)
+                # 1 - (embedding <=> query_embedding) gives similarity score (higher = more similar)
+                cursor.execute(
+                    """
+                    SELECT
+                        chunk_id,
+                        doc_id,
+                        chunk_text,
+                        page_number,
+                        1 - (embedding <=> %s::vector) as similarity
+                    FROM document_chunks
+                    WHERE tenant_id = %s
+                    ORDER BY similarity DESC
+                    LIMIT %s
+                    """,
+                    (query_embedding, tenant_id, top_k)
+                )
+
+                rows = cursor.fetchall()
+
+                for chunk_id, doc_id, chunk_text, page_number, similarity in rows:
+                    result = SearchResult(
+                        chunk_id=chunk_id,
+                        doc_id=doc_id,
+                        doc_title=doc_id,  # In production, would join with documents table
+                        chunk_text=chunk_text[:500],  # Truncate for display
+                        relevance_score=float(similarity) if similarity else 0.0,
+                        page_number=page_number or 1,
+                        match_type="vector",
+                        vector_score=float(similarity) if similarity else 0.0
+                    )
+                    results.append(result)
+
     except Exception as e:
         logger.error(f"Vector search failed: {e}")
         return []
+
+    logger.info(f"Vector search returned {len(results)} results")
+    return results
 
 
 def merge_results(bm25: List[SearchResult], vector: List[SearchResult]) -> List[SearchResult]:

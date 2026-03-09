@@ -23,6 +23,9 @@ import math
 
 import openai
 import tiktoken
+import psycopg
+
+from ..core.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -217,13 +220,13 @@ def embed_batch(texts: List[str], batch_size: int = BATCH_SIZE) -> List[List[flo
 
 def refresh_embeddings(doc_id: str) -> int:
     """Re-embed all chunks for a document (after document update).
-    
+
     Args:
         doc_id: Document ID to refresh
-    
+
     Returns:
         Number of chunks re-embedded
-    
+
     Note:
         In reference implementation, this is a skeleton.
         Production would:
@@ -234,6 +237,57 @@ def refresh_embeddings(doc_id: str) -> int:
         5. Return count updated
     """
     logger.info(f"Refreshing embeddings for document {doc_id}")
-    # In production: SELECT chunks FROM document_chunks WHERE doc_id = ?
-    # Then re-embed and UPDATE with new embeddings
-    return 0
+
+    settings = Settings()
+    chunks_updated = 0
+
+    try:
+        with psycopg.connect(settings.DATABASE_URL) as conn:
+            with conn.cursor() as cursor:
+                # Step 1: Fetch all chunks for this document
+                cursor.execute(
+                    """
+                    SELECT chunk_id, chunk_text
+                    FROM document_chunks
+                    WHERE doc_id = %s
+                    ORDER BY chunk_index ASC
+                    """,
+                    (doc_id,)
+                )
+
+                chunks = cursor.fetchall()
+
+                if not chunks:
+                    logger.info(f"No chunks found for document {doc_id}")
+                    return 0
+
+                # Step 2: Extract texts for embedding
+                chunk_ids = [chunk[0] for chunk in chunks]
+                texts = [chunk[1] for chunk in chunks]
+
+                logger.info(f"Re-embedding {len(chunks)} chunks for document {doc_id}")
+
+                # Step 3: Embed all chunks using batch embedding
+                embeddings = embed_batch(texts)
+
+                # Step 4: Update embeddings in database
+                for chunk_id, embedding in zip(chunk_ids, embeddings):
+                    cursor.execute(
+                        """
+                        UPDATE document_chunks
+                        SET embedding = %s::vector,
+                            updated_at = NOW()
+                        WHERE chunk_id = %s
+                        """,
+                        (embedding, chunk_id)
+                    )
+                    chunks_updated += 1
+
+                conn.commit()
+
+        logger.info(f"Successfully refreshed embeddings for {chunks_updated} chunks in document {doc_id}")
+        return chunks_updated
+
+    except Exception as e:
+        logger.error(f"Failed to refresh embeddings for document {doc_id}: {e}")
+        return 0

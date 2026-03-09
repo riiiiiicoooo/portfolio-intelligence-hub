@@ -12,11 +12,14 @@ import logging
 from typing import Optional
 from dataclasses import dataclass
 from functools import lru_cache
+import base64
 
 import httpx
 import jwt
 from jwt import PyJWTError
 from fastapi import Request, HTTPException, status, Depends
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
 
 from src.core.config import Settings
 from src.core.exceptions import AuthenticationError
@@ -69,14 +72,72 @@ class UserContext:
 # Clerk Public Key Management
 # ============================================================================
 
+def _jwk_to_pem(jwk: dict) -> str:
+    """
+    Convert a JWK (JSON Web Key) to PEM format.
+
+    Args:
+        jwk: JWK dictionary from Clerk JWKS endpoint
+
+    Returns:
+        Public key in PEM format
+
+    Raises:
+        ValueError: If JWK format is invalid
+    """
+    try:
+        # Check if x5c (certificate chain) is available - this is simplest
+        if "x5c" in jwk and jwk["x5c"]:
+            cert_str = jwk["x5c"][0]
+            # x5c is base64 encoded DER certificate
+            cert_der = base64.b64decode(cert_str)
+            # Load the certificate
+            from cryptography.hazmat.primitives.serialization import load_der_x509_certificate
+            cert = load_der_x509_certificate(cert_der, default_backend())
+            # Extract public key and convert to PEM
+            public_key = cert.public_key()
+            pem = public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+            return pem.decode('utf-8')
+
+        # Fallback: construct RSA key from n and e components (JWK RSA format)
+        if jwk.get("kty") == "RSA" and "n" in jwk and "e" in jwk:
+            from cryptography.hazmat.primitives.asymmetric import rsa
+            from jwt.utils import base64url_decode
+            import json
+
+            # Decode base64url encoded components
+            n = int.from_bytes(base64url_decode(jwk["n"] + "=="), byteorder='big')
+            e = int.from_bytes(base64url_decode(jwk["e"] + "=="), byteorder='big')
+
+            # Create RSA public key
+            public_numbers = rsa.RSAPublicNumbers(e, n)
+            public_key = public_numbers.public_key(default_backend())
+
+            # Convert to PEM
+            pem = public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+            return pem.decode('utf-8')
+
+        raise ValueError(f"Unsupported JWK format or missing required fields: {jwk.keys()}")
+
+    except Exception as e:
+        logger.error(f"Failed to convert JWK to PEM: {e}")
+        raise ValueError(f"Invalid JWK format: {str(e)}")
+
+
 @lru_cache(maxsize=1)
 def get_clerk_public_key() -> str:
     """
     Fetch and cache Clerk public key.
-    
+
     Returns:
-        Public key for JWT verification
-        
+        Public key for JWT verification (in PEM format)
+
     Raises:
         AuthenticationError: If public key cannot be fetched
     """
@@ -88,19 +149,21 @@ def get_clerk_public_key() -> str:
             timeout=10.0,
         )
         response.raise_for_status()
-        
+
         jwks = response.json()
-        
-        # Get first key from JWKS (in production, implement proper key selection)
+
+        # Get first key from JWKS (in production, implement proper key selection by kid)
         if jwks.get("keys"):
             key_data = jwks["keys"][0]
-            # In production, convert JWK to PEM format
-            # For now, we'll assume the key is provided
-            logger.info("Clerk public key cached")
-            return key_data.get("x5c", [None])[0]
-        
+            # Convert JWK to PEM format for PyJWT
+            pem_key = _jwk_to_pem(key_data)
+            logger.info("Clerk public key cached and converted to PEM format")
+            return pem_key
+
         raise AuthenticationError("No keys found in JWKS")
-        
+
+    except AuthenticationError:
+        raise
     except Exception as e:
         logger.error(f"Failed to fetch Clerk public key: {str(e)}")
         raise AuthenticationError("Failed to fetch public key for token verification")
