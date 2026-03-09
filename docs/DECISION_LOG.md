@@ -692,13 +692,94 @@ Vector retrieval returns top-50 candidates. Need to rerank to top-5 for user dis
 
 ---
 
-**Document Status:** Active decision tracking  
+**Document Status:** Active decision tracking
 **Review Cadence:** Add new decisions as they arise, review existing decisions quarterly
 **Next Review Date:** 2026-06-04
 
 ---
 
-## Decision 11: Constrained SQL Generation with Schema Validation Over Fine-Tuned Text-to-SQL Model
+## Decision 11: Pivot from Direct SQL Generation to Semantic Business Layer
+
+**Date:** 2026-03-01
+**Status:** DECIDED
+**Owner:** Engineering Lead + PM
+**Impact:** CRITICAL
+
+### Context
+
+Initial Version 1 used Claude directly to generate SQL from natural language. Example: "Show me occupancy rates by property" → Claude generates SELECT query → query runs against Snowflake.
+
+This worked in POV testing. But in production, accuracy was 60% — users ran queries that executed but returned wrong answers.
+
+### What Happened
+
+The accuracy problem wasn't SQL syntax; it was metric definition. "Occupancy rate" is mathematically simple: (occupied units / total units). But the LLM would sometimes calculate it differently depending on phrasing:
+
+- User query: "occupancy by property" → LLM: `occupied_units / total_units`
+- User query: "what percentage is occupied?" → LLM: `occupied_units / (occupied_units + vacant_units)` (mathematically the same but different SQL)
+- User query: "units occupied this month" → LLM: `SUM(occupied_days) / (30 * total_units)` (WRONG — counts daily occupancy instead of month-end snapshot)
+
+Same metric, three different queries. The LLM was inferring meaning from language that should have been precise definitions.
+
+**Production symptom:** Users would run two queries that should return the same number and get different results. "Why is my occupancy 73% here and 68% in the other view?" Users lost confidence in the product.
+
+### Decision
+
+Implemented a semantic business layer — a canonical definition layer between natural language and SQL.
+
+**Architecture:**
+```
+User: "occupancy by property"
+  ↓
+NLP: Extract "occupancy", "by property"
+  ↓
+Business Layer: Map "occupancy" → occupancy_rate_canonical (definition in the layer)
+occupancy_rate_canonical :=
+  SELECT property,
+    CAST(occupied_units as FLOAT) / total_units as occupancy_rate
+  FROM units_snapshot WHERE month = CURRENT_MONTH
+  ↓
+SQL Generator: Generates SQL from semantic layer, not directly from user language
+  ↓
+Snowflake: Returns consistent result
+```
+
+The business layer maps English metric names to precise SQL definitions. "Occupancy rate," "NOI," "collections ratio," "rental revenue" are all pre-defined. Claude still generates SQL, but it references the business layer instead of inferring definitions.
+
+### Rationale
+
+1. **Single source of truth:** "Occupancy rate" has one definition, not multiple interpretations. Users get consistent results.
+
+2. **Accuracy jumped from 60% to 91.3%:** The 31% improvement was entirely driven by eliminating definition ambiguity. Claude still makes SQL mistakes (JOIN logic, filter conditions) but the fundamental metric definitions are correct.
+
+3. **Regulatory compliance:** Real estate metrics like NOI and occupancy rates may be used in filings. Having canonical definitions that match the firm's official reporting definitions is a legal requirement.
+
+4. **Maintainability:** When a metric definition changes (e.g., "NOI now includes capex forecasting"), we update one place (the business layer). All queries automatically use the new definition.
+
+### Consequences
+
+**Short-term:**
+- Built semantic business layer (2 weeks) with ~45 pre-defined metrics
+- Updated SQL generator to reference business layer (1 week)
+- Training required: PMs and analysts needed to understand that new metrics need to be pre-defined, not ad-hoc
+
+**Long-term:**
+- Slower to add new metrics (must be defined in business layer first, not just asked in chat)
+- More maintainance (when property fields or unit definitions change, business layer definitions may need adjustment)
+- But overall more maintainable and auditable (metric definitions are versioned in code, not implicit in LLM behavior)
+
+**Product Impact:**
+- User confidence restored: Users can trust that two queries for the same metric return the same result
+- Eliminates "why are these numbers different?" support tickets
+- Enables firm to use the tool for regulatory reporting (filings, audits)
+
+### Lesson
+
+"Precision over inference." The LLM's ability to infer meaning from language felt like a feature ("just ask a question, we'll figure it out"). But precision is more important than convenience in data analytics. Pre-defining metrics is slightly more friction for users (can't ask arbitrary questions) but eliminates the trust problem.
+
+---
+
+## Decision 12: Constrained SQL Generation with Schema Validation Over Fine-Tuned Text-to-SQL Model
 
 **Date:** 2026-02-28
 **Status:** DECIDED
